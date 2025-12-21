@@ -587,9 +587,9 @@ export const ManagerScreen: React.FC = () => {
         const status = voiceDownloadManager.getStatus();
         if (status.isPaused) {
             voiceDownloadManager.resume();
-            // UI 즉시 갱신
+            // UI 즉시 갱신 - 재개 시 다운로드 계속됨
             if (downloadProgress) {
-                setDownloadProgress({ ...downloadProgress, isPaused: false });
+                setDownloadProgress({ ...downloadProgress, isPaused: false, currentFile: '다운로드 재개 중...' });
             }
         } else {
             voiceDownloadManager.pause();
@@ -1728,7 +1728,7 @@ export const ManagerScreen: React.FC = () => {
                     </Text>
                 </View>
 
-                <View style={[styles.toggleRow, { backgroundColor: theme.colors.dark, borderColor: theme.colors.border, marginTop: 10 }]}>
+                <View style={[styles.toggleRow, { backgroundColor: theme.colors.dark, borderColor: theme.colors.border, marginTop: 10, marginBottom: 4 }]}>
                     <Text style={{ color: theme.colors.text }}>캐시 용량</Text>
                     <Text style={{ color: theme.colors.textDim }}>
                         {(cacheSize / 1024 / 1024).toFixed(1)} MB
