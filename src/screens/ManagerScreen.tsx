@@ -194,7 +194,7 @@ export const ManagerScreen: React.FC = () => {
 
     // Voice Download State
     const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
-    const [downloadedCount, setDownloadedCount] = useState(0);
+    const [downloadedCount, setDownloadedCount] = useState(-1);  // -1 = loading
     const [totalVoiceCount, setTotalVoiceCount] = useState(0);
     const [cacheSize, setCacheSize] = useState(0);
 
@@ -587,8 +587,16 @@ export const ManagerScreen: React.FC = () => {
         const status = voiceDownloadManager.getStatus();
         if (status.isPaused) {
             voiceDownloadManager.resume();
+            // UI 즉시 갱신
+            if (downloadProgress) {
+                setDownloadProgress({ ...downloadProgress, isPaused: false });
+            }
         } else {
             voiceDownloadManager.pause();
+            // UI 즉시 갱신
+            if (downloadProgress) {
+                setDownloadProgress({ ...downloadProgress, isPaused: true, currentFile: '일시정지됨' });
+            }
         }
     };
 
@@ -1716,7 +1724,7 @@ export const ManagerScreen: React.FC = () => {
                 <View style={[styles.toggleRow, { backgroundColor: theme.colors.dark, borderColor: theme.colors.border }]}>
                     <Text style={{ color: theme.colors.text }}>다운로드 상태</Text>
                     <Text style={{ color: theme.colors.textDim }}>
-                        {downloadedCount} / {totalVoiceCount}개
+                        {downloadedCount === -1 ? '로딩 중...' : `${downloadedCount} / ${totalVoiceCount}개`}
                     </Text>
                 </View>
 
@@ -1760,7 +1768,7 @@ export const ManagerScreen: React.FC = () => {
                 )}
 
                 {/* Buttons */}
-                <View style={styles.backupButtons}>
+                <View style={[styles.backupButtons, { marginTop: downloadProgress?.isDownloading ? 16 : 0 }]}>
                     {!downloadProgress?.isDownloading ? (
                         <TouchableOpacity
                             style={[
@@ -1768,11 +1776,11 @@ export const ManagerScreen: React.FC = () => {
                                 {
                                     borderColor: theme.colors.warning,
                                     backgroundColor: `${theme.colors.warning}10`,
-                                    opacity: (downloadedCount === totalVoiceCount && totalVoiceCount > 0) ? 0.5 : 1,
+                                    opacity: (downloadedCount === -1 || (downloadedCount === totalVoiceCount && totalVoiceCount > 0)) ? 0.5 : 1,
                                 }
                             ]}
                             onPress={handleStartDownload}
-                            disabled={totalVoiceCount === 0 || (downloadedCount === totalVoiceCount && totalVoiceCount > 0)}
+                            disabled={downloadedCount === -1 || totalVoiceCount === 0 || (downloadedCount === totalVoiceCount && totalVoiceCount > 0)}
                         >
                             <MaterialCommunityIcons
                                 name={downloadedCount === totalVoiceCount && totalVoiceCount > 0 ? "check-circle" : "download"}
@@ -1780,11 +1788,13 @@ export const ManagerScreen: React.FC = () => {
                                 color={theme.colors.warning}
                             />
                             <Text style={{ color: theme.colors.warning, marginLeft: 8 }}>
-                                {downloadedCount === totalVoiceCount && totalVoiceCount > 0
-                                    ? '다운로드 완료됨'
-                                    : downloadedCount > 0
-                                        ? `이어받기 (${downloadedCount}/${totalVoiceCount})`
-                                        : '전체 다운로드 시작'}
+                                {downloadedCount === -1
+                                    ? '로딩 중...'
+                                    : downloadedCount === totalVoiceCount && totalVoiceCount > 0
+                                        ? '다운로드 완료됨'
+                                        : downloadedCount > 0
+                                            ? `이어받기 (${downloadedCount}/${totalVoiceCount})`
+                                            : '전체 다운로드 시작'}
                             </Text>
                         </TouchableOpacity>
                     ) : (
@@ -1824,7 +1834,7 @@ export const ManagerScreen: React.FC = () => {
                 </View>
 
                 <Text style={{ color: theme.colors.textDim, fontSize: 11, marginTop: 8 }}>
-                    와이파이에서 다운로드하면 오프라인에서도 음성을 재생할 수 있습니다
+                    WIFI 환경에서 다운로드하면 오프라인에서도 음성과 배경음악을 재생할 수 있습니다
                 </Text>
             </View>
         </ScrollView>

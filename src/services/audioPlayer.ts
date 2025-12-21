@@ -90,8 +90,10 @@ class AudioPlayerService {
 
             // Stop current BGM if playing
             if (this.bgmSound) {
+                await this.bgmSound.stopAsync();
                 await this.bgmSound.unloadAsync();
                 this.bgmSound = null;
+                this.isBgmPlaying = false;
             }
 
             const trackFilename = this.bgmTracks[trackKey];

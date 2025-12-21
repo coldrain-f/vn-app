@@ -71,7 +71,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     settings: {
         apiKey: '',
         apiModel: 'claude-sonnet-4-5-20250929',
-        bgmVolume: 30,
+        bgmVolume: 10,
         bgmAutoplay: true,
         bgmTrack: 'gate_of_steiner',
         voiceVolume: 100,
