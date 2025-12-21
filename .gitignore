@@ -36,6 +36,7 @@ yarn-error.*
 
 # Voice
 /assets/Voice/*
+/assets/BGM/*
 
 # typescript
 *.tsbuildinfo

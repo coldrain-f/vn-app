@@ -29,6 +29,8 @@ import { SentenceEditModal } from '../components/common/SentenceEditModal';
 import { ActionMenuModal, ActionItem } from '../components/common/ActionMenuModal';
 import { FuriganaText } from '../components/common/FuriganaText';
 import { ActivityIndicator, Dimensions } from 'react-native';
+import { voiceDownloadManager, DownloadProgress } from '../services/voiceDownloadManager';
+import { BgmSelectionModal, getTrackName } from '../components/common/BgmSelectionModal';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -102,6 +104,25 @@ export const ManagerScreen: React.FC = () => {
         }
     }, [settings.bgmAutoplay, settings.bgmTrack]);
 
+    // Initialize voice download manager
+    React.useEffect(() => {
+        // Set voice file list from sentences
+        const voiceFiles = sentences
+            .filter(s => s.audio && s.audio.trim() !== '')
+            .map(s => s.audio);
+        voiceDownloadManager.setVoiceFileList(voiceFiles);
+        setTotalVoiceCount(voiceDownloadManager.getTotalFileCount());
+
+        // Load cache stats
+        const loadCacheStats = async () => {
+            const count = await voiceDownloadManager.getDownloadedCount();
+            const size = await voiceDownloadManager.getCacheSize();
+            setDownloadedCount(count);
+            setCacheSize(size);
+        };
+        loadCacheStats();
+    }, [sentences]);
+
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(0);
     const [toastMessage, setToastMessage] = useState('');
@@ -170,6 +191,15 @@ export const ManagerScreen: React.FC = () => {
 
     // Action Menu State
     const [showActionMenu, setShowActionMenu] = useState(false);
+
+    // Voice Download State
+    const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
+    const [downloadedCount, setDownloadedCount] = useState(0);
+    const [totalVoiceCount, setTotalVoiceCount] = useState(0);
+    const [cacheSize, setCacheSize] = useState(0);
+
+    // BGM Selection Modal State
+    const [showBgmModal, setShowBgmModal] = useState(false);
 
     const showToastMessage = useCallback((message: string) => {
         setToastMessage(message);
@@ -529,6 +559,75 @@ export const ManagerScreen: React.FC = () => {
             console.error('Import error:', error);
             showToastMessage('복원 실패');
         }
+    };
+
+    // Voice Download Handlers
+    const handleStartDownload = async () => {
+        setDownloadProgress({
+            total: totalVoiceCount,
+            completed: downloadedCount,
+            failed: 0,
+            currentFile: '',
+            isDownloading: true,
+            isPaused: false,
+        });
+
+        await voiceDownloadManager.startDownload((progress) => {
+            setDownloadProgress(progress);
+            if (!progress.isDownloading) {
+                // Download finished
+                setDownloadedCount(progress.completed);
+                voiceDownloadManager.getCacheSize().then(setCacheSize);
+                showToastMessage(`다운로드 완료: ${progress.completed}개 파일`);
+            }
+        });
+    };
+
+    const handlePauseDownload = () => {
+        const status = voiceDownloadManager.getStatus();
+        if (status.isPaused) {
+            voiceDownloadManager.resume();
+        } else {
+            voiceDownloadManager.pause();
+        }
+    };
+
+    const handleCancelDownload = () => {
+        Alert.alert(
+            '다운로드 취소',
+            '진행 중인 다운로드를 취소하시겠습니까?',
+            [
+                { text: '계속', style: 'cancel' },
+                {
+                    text: '취소',
+                    style: 'destructive',
+                    onPress: () => {
+                        voiceDownloadManager.cancel();
+                        setDownloadProgress(null);
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleClearCache = () => {
+        Alert.alert(
+            '캐시 삭제',
+            `다운로드된 음성 파일 ${downloadedCount}개를 모두 삭제하시겠습니까?\n(${(cacheSize / 1024 / 1024).toFixed(1)} MB)`,
+            [
+                { text: '취소', style: 'cancel' },
+                {
+                    text: '삭제',
+                    style: 'destructive',
+                    onPress: async () => {
+                        await voiceDownloadManager.clearCache();
+                        setDownloadedCount(0);
+                        setCacheSize(0);
+                        showToastMessage('캐시가 삭제되었습니다');
+                    }
+                }
+            ]
+        );
     };
 
     // Tab config
@@ -1521,34 +1620,12 @@ export const ManagerScreen: React.FC = () => {
                 {/* BGM Track Selector - Dropdown Style */}
                 <TouchableOpacity
                     style={[styles.toggleRow, { backgroundColor: theme.colors.dark, borderColor: theme.colors.border }]}
-                    onPress={() => {
-                        // Show track selection modal
-                        const tracks = [
-                            { key: 'gate_of_steiner', name: 'Gate of Steiner' },
-                            { key: 'noisy_times', name: 'Noisy Times' },
-                        ];
-                        const options = tracks.map(t => t.name);
-                        Alert.alert(
-                            '트랙 선택',
-                            '배경음악을 선택하세요',
-                            [
-                                ...tracks.map(track => ({
-                                    text: track.name + (settings.bgmTrack === track.key ? ' ✓' : ''),
-                                    onPress: () => {
-                                        setSettings({ bgmTrack: track.key });
-                                        audioPlayer.stopBgm();
-                                    }
-                                })),
-                                { text: '취소', style: 'cancel' }
-                            ]
-                        );
-                    }}
+                    onPress={() => setShowBgmModal(true)}
                 >
                     <Text style={{ color: theme.colors.text }}>트랙</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <Text style={{ color: theme.colors.accent, marginRight: 8 }}>
-                            {settings.bgmTrack === 'gate_of_steiner' ? 'Gate of Steiner' :
-                                settings.bgmTrack === 'noisy_times' ? 'Noisy Times' : 'Gate of Steiner'}
+                            {getTrackName(settings.bgmTrack)}
                         </Text>
                         <MaterialCommunityIcons name="chevron-down" size={20} color={theme.colors.textDim} />
                     </View>
@@ -1626,6 +1703,129 @@ export const ManagerScreen: React.FC = () => {
                         <Text style={{ color: theme.colors.info, marginLeft: 8 }}>백업 불러오기</Text>
                     </TouchableOpacity>
                 </View>
+            </View>
+
+            {/* Offline Voice Download */}
+            <View style={styles.settingsSection}>
+                <View style={styles.sectionHeader}>
+                    <MaterialCommunityIcons name="download" size={18} color={theme.colors.warning} />
+                    <Text style={[styles.sectionTitle, { color: theme.colors.warning }]}>오프라인 다운로드</Text>
+                </View>
+
+                {/* Status */}
+                <View style={[styles.toggleRow, { backgroundColor: theme.colors.dark, borderColor: theme.colors.border }]}>
+                    <Text style={{ color: theme.colors.text }}>다운로드 상태</Text>
+                    <Text style={{ color: theme.colors.textDim }}>
+                        {downloadedCount} / {totalVoiceCount}개
+                    </Text>
+                </View>
+
+                <View style={[styles.toggleRow, { backgroundColor: theme.colors.dark, borderColor: theme.colors.border, marginTop: 10 }]}>
+                    <Text style={{ color: theme.colors.text }}>캐시 용량</Text>
+                    <Text style={{ color: theme.colors.textDim }}>
+                        {(cacheSize / 1024 / 1024).toFixed(1)} MB
+                    </Text>
+                </View>
+
+                {/* Progress Bar (when downloading) */}
+                {downloadProgress?.isDownloading && (
+                    <View style={{ marginTop: 12 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text style={{ color: theme.colors.textDim, fontSize: 12 }}>
+                                {downloadProgress.currentFile || '준비 중...'}
+                            </Text>
+                            <Text style={{ color: theme.colors.warning, fontSize: 12 }}>
+                                {downloadProgress.completed} / {downloadProgress.total}
+                            </Text>
+                        </View>
+                        <View style={{
+                            height: 8,
+                            backgroundColor: `${theme.colors.warning}20`,
+                            borderRadius: 4,
+                            overflow: 'hidden'
+                        }}>
+                            <View style={{
+                                height: '100%',
+                                width: `${(downloadProgress.completed / downloadProgress.total) * 100}%`,
+                                backgroundColor: theme.colors.warning,
+                                borderRadius: 4,
+                            }} />
+                        </View>
+                        {downloadProgress.failed > 0 && (
+                            <Text style={{ color: theme.colors.error, fontSize: 11, marginTop: 4 }}>
+                                실패: {downloadProgress.failed}개
+                            </Text>
+                        )}
+                    </View>
+                )}
+
+                {/* Buttons */}
+                <View style={styles.backupButtons}>
+                    {!downloadProgress?.isDownloading ? (
+                        <TouchableOpacity
+                            style={[
+                                styles.backupButton,
+                                {
+                                    borderColor: theme.colors.warning,
+                                    backgroundColor: `${theme.colors.warning}10`,
+                                    opacity: (downloadedCount === totalVoiceCount && totalVoiceCount > 0) ? 0.5 : 1,
+                                }
+                            ]}
+                            onPress={handleStartDownload}
+                            disabled={totalVoiceCount === 0 || (downloadedCount === totalVoiceCount && totalVoiceCount > 0)}
+                        >
+                            <MaterialCommunityIcons
+                                name={downloadedCount === totalVoiceCount && totalVoiceCount > 0 ? "check-circle" : "download"}
+                                size={18}
+                                color={theme.colors.warning}
+                            />
+                            <Text style={{ color: theme.colors.warning, marginLeft: 8 }}>
+                                {downloadedCount === totalVoiceCount && totalVoiceCount > 0
+                                    ? '다운로드 완료됨'
+                                    : downloadedCount > 0
+                                        ? `이어받기 (${downloadedCount}/${totalVoiceCount})`
+                                        : '전체 다운로드 시작'}
+                            </Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <TouchableOpacity
+                                style={[styles.backupButton, { flex: 1, borderColor: theme.colors.info, backgroundColor: `${theme.colors.info}10` }]}
+                                onPress={handlePauseDownload}
+                            >
+                                <MaterialCommunityIcons
+                                    name={downloadProgress.isPaused ? "play" : "pause"}
+                                    size={18}
+                                    color={theme.colors.info}
+                                />
+                                <Text style={{ color: theme.colors.info, marginLeft: 8 }}>
+                                    {downloadProgress.isPaused ? '재개' : '일시정지'}
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.backupButton, { flex: 1, borderColor: theme.colors.error, backgroundColor: `${theme.colors.error}10` }]}
+                                onPress={handleCancelDownload}
+                            >
+                                <MaterialCommunityIcons name="close" size={18} color={theme.colors.error} />
+                                <Text style={{ color: theme.colors.error, marginLeft: 8 }}>취소</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+                    {downloadedCount > 0 && !downloadProgress?.isDownloading && (
+                        <TouchableOpacity
+                            style={[styles.backupButton, { borderColor: theme.colors.error, backgroundColor: `${theme.colors.error}10`, marginTop: 10 }]}
+                            onPress={handleClearCache}
+                        >
+                            <MaterialCommunityIcons name="delete" size={18} color={theme.colors.error} />
+                            <Text style={{ color: theme.colors.error, marginLeft: 8 }}>캐시 삭제</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                <Text style={{ color: theme.colors.textDim, fontSize: 11, marginTop: 8 }}>
+                    와이파이에서 다운로드하면 오프라인에서도 음성을 재생할 수 있습니다
+                </Text>
             </View>
         </ScrollView>
     );
@@ -2086,6 +2286,17 @@ export const ManagerScreen: React.FC = () => {
                 title="일괄 작업"
                 actions={actionMenuActions}
                 onClose={() => setShowActionMenu(false)}
+            />
+
+            {/* BGM Selection Modal */}
+            <BgmSelectionModal
+                visible={showBgmModal}
+                onClose={() => setShowBgmModal(false)}
+                onSelect={(trackKey) => {
+                    setSettings({ bgmTrack: trackKey });
+                    audioPlayer.stopBgm();
+                }}
+                currentTrack={settings.bgmTrack}
             />
         </SafeAreaView>
     );

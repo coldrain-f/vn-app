@@ -10,7 +10,7 @@
     },
     "preview": {
       "distribution": "internal",
-      "resourceClass": "large",
+      "resourceClass": "large"
     },
     "production": {
       "autoIncrement": true
