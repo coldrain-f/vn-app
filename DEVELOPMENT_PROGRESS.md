@@ -1,5 +1,5 @@
 # VN;READER React Native 개발 진행 상황
-> 마지막 업데이트: 2025-12-21 05:20
+> 마지막 업데이트: 2025-12-21 18:20
 
 ## 📱 프로젝트 개요
 
@@ -69,7 +69,8 @@
 - `stopBgm()` - BGM 중지
 - `toggleBgm(trackKey)` - 재생/중지 토글
 - `setBgmVolume(volume)` - 볼륨 설정 (0-100)
-- **트랙 목록**: gate_of_steiner, noisy_times
+- **트랙 목록**: 46곡 (Gate of Steiner, Promise, Christina I/II 등)
+- **트랙 선택 모달**: 스크롤 가능한 전체 목록 (Disc 1/2 구분)
 
 ### 4. 디자인 시스템
 - 7가지 테마 (steinsgate, cyberpunk, ocean, sakura, amber, monochrome, modern)
@@ -187,13 +188,14 @@ vn-reader-app/
 └── src/
     ├── components/common/     # FuriganaText, Modal, Toast, ActionMenuModal
     ├── config/
-    │   └── voiceAssets.ts     # Voice 파일 맵 (자동 생성)
+    │   └── voiceAssets.ts     # Voice R2 URL 설정
     ├── screens/               # ReaderScreen, ManagerScreen
     ├── store/useAppStore.ts   # Zustand (settings 포함)
     ├── services/
     │   ├── storage.ts         # FileSystem JSON 저장소
     │   ├── claudeApi.ts       # Claude API 연동
-    │   └── audioPlayer.ts     # BGM/Voice 재생 서비스
+    │   ├── audioPlayer.ts     # BGM/Voice 재생 서비스
+    │   └── voiceDownloadManager.ts  # 오프라인 다운로드 관리
     ├── theme/index.ts         # 7가지 테마
     └── utils/furigana.ts      # 파싱 (정규식 수정됨)
 ```
@@ -325,3 +327,37 @@ interface Settings {
 - **Footer 레이아웃 수정**: FlatList 하단 여백(paddingBottom) 조정으로 페이지네이션이 떠 보이는 현상 해결
 - **Selection Bar**: 하단 고정형 전체 너비 디자인 적용 및 **Action Menu(More)** 버튼 구현
 - **Action Menu**: 공간 효율을 위해 AI 기능(읽기, 번역, 해설, 검증)을 드롭다운 메뉴로 이동
+
+### 6. Cloudflare R2 오디오 호스팅 & 오프라인 다운로드 (2025-12-21 오후 세션)
+
+#### 문제 상황
+- Voice 파일 ~14,000개 (~1.4GB), BGM 2개 → EAS Build 용량/시간 초과
+- Metro EMFILE 에러 (Windows에서 파일 핸들 부족)
+
+#### 해결: Cloudflare R2 마이그레이션
+- **Cloudflare R2 버킷** `vn-voice` 생성
+- **파일 업로드**: `rclone`으로 Voice 14,323개 + BGM 46개 업로드
+- **URL 스트리밍**: `voiceAssets.ts`를 `require()` 방식에서 R2 URL 방식으로 변경
+- **audioPlayer.ts**: BGM도 R2에서 스트리밍
+
+#### 오프라인 다운로드 기능 (voiceDownloadManager.ts)
+- **다운로드 매니저 서비스** 구현
+  - 전체 다운로드 / 일시정지 / 재개 / 취소
+  - 진행률 콜백 (DownloadProgress)
+  - 이미 다운로드된 파일은 자동 스킵
+- **재생 우선순위**: 로컬 캐시 우선 → R2 스트리밍 폴백
+- **설정 화면 UI**:
+  - 다운로드 상태 표시 (X / Y개)
+  - 캐시 용량 표시
+  - 진행률 바
+  - 버튼: 전체 다운로드 / 이어받기 / 캐시 삭제
+  - 100% 완료 시 버튼 비활성화
+
+#### BGM 업그레이드
+- 기존 2곡 → **46곡**으로 확장 (Steins;Gate OST 전체)
+- **BgmSelectionModal 컴포넌트**: 스크롤 가능한 전체 목록, Disc 1/2 구분
+- 테마 색상 적용, 현재 선택 트랙 하이라이트
+
+#### 설정 변경
+- `bgmAutoplay` 기본값: `false` → `true`로 변경
+

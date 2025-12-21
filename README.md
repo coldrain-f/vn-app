@@ -10,13 +10,14 @@ Steins;Gate 스타일 비주얼 노벨 일본어 학습 앱 (React Native / Expo
 - 스와이프 제스처로 문장 이동
 - 한자 롱프레스 → 한자 정보 모달
 - AI 해설 생성 (Claude API)
-- 음성/BGM 재생
+- 음성/BGM 재생 (46곡 선택 가능)
 
 ### 데이터 관리
 - 문장 목록/북마크/추가/사전/설정 탭
 - AI 일괄 처리 (읽기, 번역, 해설 생성)
 - 백업 내보내기/불러오기 (JSON)
 - 7가지 테마 지원
+- **오프라인 다운로드**: 음성 파일 로컬 캐시 (R2에서 다운로드)
 
 ## 실행 방법
 
@@ -102,6 +103,7 @@ rm -rf "$LOCALAPPDATA/Temp/metro-cache"
 - Zustand (상태 관리)
 - Claude API (AI 생성)
 - expo-av (오디오)
+- Cloudflare R2 (오디오 호스팅)
 
 ## 프로젝트 구조
 
@@ -109,7 +111,7 @@ rm -rf "$LOCALAPPDATA/Temp/metro-cache"
 src/
 ├── components/    # 공통 컴포넌트
 ├── screens/       # 화면 (ReaderScreen, ManagerScreen)
-├── services/      # API, 오디오, 햅틱
+├── services/      # API, 오디오, 햄틱, 다운로드
 ├── store/         # Zustand 상태
 ├── styles/        # 스타일
 ├── theme/         # 테마 정의
