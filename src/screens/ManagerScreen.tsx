@@ -1578,8 +1578,13 @@ export const ManagerScreen: React.FC = () => {
                 <TouchableOpacity
                     style={[styles.backupButton, { borderColor: theme.colors.info, backgroundColor: `${theme.colors.info}10`, marginTop: 10 }]}
                     onPress={() => {
-                        // Play a fixed sample voice for preview
-                        audioPlayer.playVoice('OKA_0001.mp3');
+                        // Play a random voice from the list for preview
+                        const voiceSentence = sentences.find(s => s.audio && s.audio.trim().length > 0);
+                        if (voiceSentence && voiceSentence.audio) {
+                            audioPlayer.playVoice(voiceSentence.audio);
+                        } else {
+                            showToastMessage('재생할 수 있는 음성 파일이 없습니다');
+                        }
                     }}
                 >
                     <MaterialCommunityIcons name="play-circle-outline" size={18} color={theme.colors.info} />

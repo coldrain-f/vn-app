@@ -104,7 +104,7 @@ class VoiceDownloadManager {
         try {
             const info = await FileSystem.getInfoAsync(localPath);
             if (info.exists) {
-                return { uri: localPath };
+                return { uri: encodeURI(localPath) };
             }
         } catch {
             // Fall through to remote
