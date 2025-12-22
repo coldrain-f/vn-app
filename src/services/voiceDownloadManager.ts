@@ -110,7 +110,7 @@ class VoiceDownloadManager {
             // Fall through to remote
         }
 
-        return { uri: VOICE_BASE_URL + '/' + key + '.mp3' };
+        return { uri: VOICE_BASE_URL + '/' + encodeURIComponent(key + '.mp3') };
     }
 
     private async ensureCacheDir(): Promise<void> {
@@ -146,7 +146,7 @@ class VoiceDownloadManager {
     }
 
     private async downloadFile(key: string): Promise<boolean> {
-        const url = VOICE_BASE_URL + '/' + key + '.mp3';
+        const url = VOICE_BASE_URL + '/' + encodeURIComponent(key + '.mp3');
         const localPath = VOICE_CACHE_DIR + key + '.mp3';
 
         try {

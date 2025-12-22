@@ -10,6 +10,24 @@ class AudioPlayerService {
     private voiceVolume: number = 1.0;
     private isBgmPlaying: boolean = false;
 
+    constructor() {
+        this.initAudioMode();
+    }
+
+    private async initAudioMode() {
+        try {
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: false,
+                staysActiveInBackground: false,
+                playsInSilentModeIOS: false,
+                shouldDuckAndroid: true,
+                playThroughEarpieceAndroid: false,
+            });
+        } catch (error) {
+            console.error('Failed to set audio mode:', error);
+        }
+    }
+
     // BGM base URL on Cloudflare R2
     private readonly BGM_BASE_URL = 'https://pub-ced4ba529aee44d4be6d41ac76678ba5.r2.dev/BGM';
 
