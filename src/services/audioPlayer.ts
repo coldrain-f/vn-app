@@ -157,14 +157,22 @@ class AudioPlayerService {
     async stopBgm(): Promise<void> {
         try {
             if (this.bgmSound) {
-                await this.bgmSound.stopAsync();
-                await this.bgmSound.unloadAsync();
+                try {
+                    await this.bgmSound.stopAsync();
+                } catch (e) {
+                    // Ignore stop errors (like seeking interrupted)
+                }
+                try {
+                    await this.bgmSound.unloadAsync();
+                } catch (e) {
+                    // Ignore unload errors
+                }
                 this.bgmSound = null;
                 this.isBgmPlaying = false;
                 this.currentBgmTrack = null;
             }
         } catch (error) {
-            console.error('Error stopping BGM:', error);
+            console.warn('Error in stopBgm cleanup:', error);
         }
     }
 
