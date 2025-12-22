@@ -88,16 +88,19 @@ export const ManagerScreen: React.FC = () => {
 
     // Stop voice playback when entering this screen
     React.useEffect(() => {
-        audioPlayer.stopVoice();
-    }, []);
+        const unsubscribe = navigation.addListener('focus', () => {
+            audioPlayer.stopVoice();
+        });
+        return unsubscribe;
+    }, [navigation]);
 
     // Handle BGM based on autoplay setting
     React.useEffect(() => {
         if (settings.bgmAutoplay) {
-            // Stop any existing BGM first to prevent overlap
-            audioPlayer.stopBgm().then(() => {
+            // Only play if not already playing or track changed
+            if (!audioPlayer.isBgmCurrentlyPlaying()) {
                 audioPlayer.playBgm(settings.bgmTrack || 'gate_of_steiner');
-            });
+            }
         } else {
             // Stop BGM when autoplay is turned off
             audioPlayer.stopBgm();

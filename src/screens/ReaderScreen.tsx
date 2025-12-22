@@ -15,7 +15,7 @@ import {
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { readerStyles as styles } from '../styles';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
 import { getTheme } from '../theme';
@@ -409,6 +409,16 @@ export const ReaderScreen: React.FC = () => {
     };
 
     // Voice autoplay effect - stops previous and plays new on sentence change
+    // Voice autoplay effect - stops previous and plays new on sentence change
+    const isFocused = useIsFocused();
+
+    // Stop audio when leaving screen
+    React.useEffect(() => {
+        if (!isFocused) {
+            audioPlayer.stopVoice();
+        }
+    }, [isFocused]);
+
     React.useEffect(() => {
         let cancelled = false;
 
@@ -416,8 +426,8 @@ export const ReaderScreen: React.FC = () => {
             // Always stop any currently playing voice first
             await audioPlayer.stopVoice();
 
-            // Only play new voice if not cancelled, autoplay is enabled, and audio exists
-            if (!cancelled && settings.voiceAutoplay && currentSentence?.audio) {
+            // Only play new voice if not cancelled, autoplay is enabled, and audio exists AND screen is focused
+            if (!cancelled && settings.voiceAutoplay && currentSentence?.audio && isFocused) {
                 await audioPlayer.playVoice(currentSentence.audio);
             }
         };
@@ -429,7 +439,7 @@ export const ReaderScreen: React.FC = () => {
             // Stop voice immediately when sentence changes to prevent overlap
             audioPlayer.stopVoice();
         };
-    }, [currentIndex]);
+    }, [currentIndex, isFocused]); // Add isFocused dependency
 
     // BGM autoplay effect - plays BGM when entering ReaderScreen if enabled
     useFocusEffect(

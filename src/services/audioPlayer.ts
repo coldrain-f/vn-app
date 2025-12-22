@@ -99,10 +99,21 @@ class AudioPlayerService {
 
     private currentBgmTrack: string | null = null;
 
+    private isBgmLoading: boolean = false;
+
     async playBgm(trackKey: string = 'gate_of_steiner'): Promise<void> {
+        // Prevent concurrent loading which causes audio overlaps
+        if (this.isBgmLoading) {
+            console.log('BGM loading in progress, skipping request');
+            return;
+        }
+
         try {
+            this.isBgmLoading = true;
+
             // Skip if the same track is already playing
             if (this.isBgmPlaying && this.currentBgmTrack === trackKey) {
+                this.isBgmLoading = false;
                 return;
             }
 
@@ -117,6 +128,7 @@ class AudioPlayerService {
             const trackFilename = this.bgmTracks[trackKey];
             if (!trackFilename) {
                 console.warn('BGM track not found:', trackKey);
+                this.isBgmLoading = false;
                 return;
             }
 
@@ -137,6 +149,8 @@ class AudioPlayerService {
             this.isBgmPlaying = true;
         } catch (error) {
             console.error('Error playing BGM:', error);
+        } finally {
+            this.isBgmLoading = false;
         }
     }
 
@@ -237,6 +251,9 @@ class AudioPlayerService {
     }
 
     async stopVoice(): Promise<void> {
+        // Increment request ID to invalidate any pending play requests
+        this.voiceRequestId++;
+
         // Store reference locally to prevent race condition
         const sound = this.voiceSound;
         this.voiceSound = null;
