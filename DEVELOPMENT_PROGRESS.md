@@ -361,3 +361,37 @@ interface Settings {
 #### 설정 변경
 - `bgmAutoplay` 기본값: `false` → `true`로 변경
 
+### 7. iOS 오디오 디버깅 및 고도화 (2025-12-23)
+
+#### 1. iOS 재생 오류 (Error -1100)
+**상황**: Android는 재생되는데 iOS에서만 `NSURLErrorDomain` 에러 발생
+**원인**:
+- URL 인코딩 문제: 파일명에 공백/특수문자가 있을 때 iOS AVPlayer가 엄격하게 처리
+- 파일 부재: '미리 듣기' 기능이 하드코딩된 `OKA_0001.mp3`를 참조했으나 서버에 파일이 없었음 (404)
+**해결**:
+- `encodeURIComponent` 적용: URL 생성 로직에 인코딩 추가
+- **동적 미리 듣기**: 하드코딩된 파일 대신 현재 문장 목록의 첫 번째 유효한 파일을 재생하도록 변경
+
+#### 2. BGM 중첩 재생 (Overlap) 이슈
+**상황**: 화면 전환 시 BGM이 겹쳐서 들리는 현상 (Double Play)
+**원인**:
+- `ReaderScreen`과 `ManagerScreen`이 동시에 BGM 재생을 요청
+- `playBgm`이 비동기(Async)라서, 첫 번째 요청이 로딩 중일 때 두 번째 요청이 들어와 둘 다 실행됨
+**해결**:
+- **Loading Lock**: `isBgmLoading` 플래그를 추가하여 로딩 중 중복 요청 차단
+- **Smart Autoplay**: `ManagerScreen` 진입 시 "이미 재생 중이면 건너뛰기" 로직 추가
+
+#### 3. 화면 전환 시 음성 잔여 재생
+**상황**: 리더 화면에서 음성 재생 직후 설정 화면으로 이동하면 음성이 계속 나옴
+**원인**:
+- **Race Condition**: `playVoice`(로딩) -> `navigate`(이동) -> `stopVoice`(중지 요청) -> `playVoice`(로딩 완료 후 재생)
+- 중지 요청이 로딩 완료 시점보다 먼저 처리되어 무시됨
+**해결**:
+- **Request ID Invalidation**: `stopVoice()` 호출 시 `voiceRequestId`를 증가시켜, 로딩 중이던 `playVoice`가 완료되어도 ID 불일치로 재생 취소되도록 수정
+- **Focus Awareness**: `ReaderScreen`이 포커스를 잃으면(`!isFocused`) 즉시 오디오 중지 및 자동 재생 차단
+
+#### 4. 'Seeking Interrupted' 에러 처리
+**상황**: BGM 자동 재생을 끌 때 콘솔에 에러 발생
+**원인**: 오디오가 로딩/재생 시도 중에 `stopAsync`가 호출되면 발생하는 iOS 고유의 경고
+**해결**: `stopBgm` 내부에서 해당 에러를 catch하여 무시(Silent) 처리 (기능상 문제없음)
+
