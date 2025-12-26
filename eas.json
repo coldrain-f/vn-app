@@ -13,7 +13,8 @@
       "resourceClass": "large"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "resourceClass": "large"
     }
   },
   "submit": {
