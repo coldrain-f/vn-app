@@ -74,13 +74,18 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
         // Merge HTMLs
         const mergedHtml = targetEntries.map(e => e.html).join('<hr class="entry-divider" style="margin: 20px 0; border: 0; border-top: 1px dashed #ccc;" />');
 
+        // Inject absolute image paths (Polyfill for <base> issues)
+        const R2_BASE_URL = 'https://pub-ced4ba529aee44d4be6d41ac76678ba5.r2.dev/';
+        const finalHtmlContent = mergedHtml.replace(/src="images_hitsujun\//g, `src="${R2_BASE_URL}images_hitsujun/`);
+
+        console.log('[DictionaryModal] HTML Preview:', finalHtmlContent.substring(0, 200));
+
         // Base HTML structure with injected CSS and dark mode support if needed
         return `
             <!DOCTYPE html>
             <html>
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-                <base href="https://pub-ced4ba529aee44d4be6d41ac76678ba5.r2.dev/" />
                 <style>
                     :root {
                         --background-color: ${theme.colors.background};
