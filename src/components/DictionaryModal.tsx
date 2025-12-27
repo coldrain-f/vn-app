@@ -139,6 +139,25 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                         color: #0284C7;
                         font-weight: 600;
                     }
+                    
+                    /* 旺文社 table - widen 縦中横 column */
+                    td[data-class="縦中横"] {
+                        min-width: 80px;
+                        white-space: nowrap;
+                        padding-right: 0.8em;
+                        font-weight: 500;
+                        color: #64748b;
+                    }
+                    
+                    /* General table styling */
+                    table {
+                        border-collapse: collapse;
+                        width: 100%;
+                    }
+                    td, th {
+                        padding: 0.25em 0.5em;
+                        vertical-align: top;
+                    }
                 </style>
             </head>
             <body>
