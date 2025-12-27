@@ -18,6 +18,7 @@ interface AppState {
     selectedListItems: Set<number>;
     selectedBookmarkItems: Set<number>;
     selectedDictWords: Set<string>;
+    activeNovelId: string | null;
 
     // Actions - Data
     setSentences: (sentences: Sentence[]) => void;
@@ -60,6 +61,8 @@ interface AppState {
     // Actions - Backup
     exportBackup: () => Promise<string>;
     importBackup: (data: string) => Promise<void>;
+    // Actions - Active Novel
+    setActiveNovelId: (id: string | null) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -88,6 +91,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     selectedListItems: new Set(),
     selectedBookmarkItems: new Set(),
     selectedDictWords: new Set(),
+    activeNovelId: null,
 
     // Data actions
     setSentences: (sentences) => {
@@ -276,7 +280,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ selectedDictWords: new Set() });
     },
 
-    // Selection actions
+    setActiveNovelId: (id) => {
+        set({ activeNovelId: id });
+        storage.saveActiveNovelId(id);
+    },
+
     // Selection actions
     toggleSelection: (index, scope = 'list') => {
         const { selectedListItems, selectedBookmarkItems } = get();
@@ -321,6 +329,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                 readingDict: data.readingDict,
                 currentIndex: data.currentIndex,
                 settings: data.settings ? { ...get().settings, ...data.settings } : get().settings,
+                activeNovelId: data.activeNovelId,
                 isLoading: false,
                 loadingProgress: 100,
             });

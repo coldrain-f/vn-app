@@ -68,6 +68,8 @@ export const ManagerScreen: React.FC = () => {
         selectAll,
         toggleBookmark,
         loadData,
+        activeNovelId,
+        setActiveNovelId,
     } = useAppStore();
 
     const theme = getTheme(settings.theme);
@@ -135,6 +137,7 @@ export const ManagerScreen: React.FC = () => {
                         try {
                             await activateNovel(novel.id);
                             await loadData();
+                            setActiveNovelId(novel.id);
                             showToastMessage('소설을 로드했습니다');
                             navigation.navigate('Reader');
                         } catch (e) {
@@ -1010,82 +1013,103 @@ export const ManagerScreen: React.FC = () => {
                         <Text style={{ color: theme.colors.textDim, marginTop: 4 }}>'.vnpack' 파일을 가져와주세요.</Text>
                     </View>
                 }
-                renderItem={({ item }) => (
-                    <View style={{
-                        backgroundColor: theme.colors.panel,
-                        borderRadius: 12,
-                        marginBottom: 12,
-                        overflow: 'hidden',
-                        borderWidth: 1,
-                        borderColor: `${theme.colors.border}50`
-                    }}>
-                        <TouchableOpacity
-                            onPress={() => handleSwitchNovel(item)}
-                            style={{ padding: 16 }}
-                        >
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ color: theme.colors.text, fontSize: 18, fontFamily: 'Pretendard-Bold', marginBottom: 4 }}>
-                                        {item.title}
-                                    </Text>
-                                    <Text style={{ color: theme.colors.textDim, fontSize: 12 }}>
-                                        ID: {item.id}
-                                    </Text>
-                                </View>
-                                <View style={{ padding: 4, backgroundColor: `${theme.colors.primary}10`, borderRadius: 4 }}>
-                                    <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.primary} />
-                                </View>
-                            </View>
+                renderItem={({ item }) => {
+                    const isActive = activeNovelId === item.id;
 
-                            <View style={{ flexDirection: 'row', marginTop: 12, gap: 16 }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <MaterialCommunityIcons name="format-list-numbered" size={14} color={theme.colors.textDim} />
-                                    <Text style={{ color: theme.colors.textDim, marginLeft: 4, fontSize: 13 }}>
-                                        {item.sentenceCount.toLocaleString()} 문장
-                                    </Text>
-                                </View>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <MaterialCommunityIcons name="calendar" size={14} color={theme.colors.textDim} />
-                                    <Text style={{ color: theme.colors.textDim, marginLeft: 4, fontSize: 13 }}>
-                                        {new Date(item.importedAt).toLocaleDateString()}
-                                    </Text>
-                                </View>
-                            </View>
-                        </TouchableOpacity>
-
+                    return (
                         <View style={{
-                            flexDirection: 'row',
-                            borderTopWidth: 1,
-                            borderTopColor: `${theme.colors.border}40`,
+                            backgroundColor: theme.colors.panel,
+                            borderRadius: 12,
+                            marginBottom: 12,
+                            overflow: 'hidden',
+                            borderWidth: isActive ? 2 : 1,
+                            borderColor: isActive ? theme.colors.primary : `${theme.colors.border}50`
                         }}>
                             <TouchableOpacity
                                 onPress={() => handleSwitchNovel(item)}
-                                style={{
-                                    flex: 1,
-                                    paddingVertical: 12,
-                                    alignItems: 'center',
-                                    borderRightWidth: 1,
-                                    borderRightColor: `${theme.colors.border}40`
-                                }}
+                                style={{ padding: 16 }}
+                                disabled={isActive}
                             >
-                                <Text style={{ color: theme.colors.primary, fontFamily: 'Pretendard-Medium' }}>열기</Text>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <View style={{ flex: 1 }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                            <Text style={{ color: theme.colors.text, fontSize: 18, fontFamily: 'Pretendard-Bold', marginRight: 8, flexShrink: 1 }}>
+                                                {item.title}
+                                            </Text>
+                                            {isActive && (
+                                                <View style={{ paddingHorizontal: 8, paddingVertical: 2, backgroundColor: theme.colors.primary, borderRadius: 4 }}>
+                                                    <Text style={{ fontSize: 11, color: theme.colors.dark, fontWeight: 'bold' }}>사용 중</Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                        <Text style={{ color: theme.colors.textDim, fontSize: 12 }}>
+                                            ID: {item.id}
+                                        </Text>
+                                    </View>
+                                    <View style={{ padding: 4, backgroundColor: isActive ? theme.colors.primary : `${theme.colors.primary}10`, borderRadius: 4 }}>
+                                        <MaterialCommunityIcons name={isActive ? "check" : "chevron-right"} size={20} color={isActive ? theme.colors.dark : theme.colors.primary} />
+                                    </View>
+                                </View>
+
+                                <View style={{ flexDirection: 'row', marginTop: 12, gap: 16 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <MaterialCommunityIcons name="format-list-numbered" size={14} color={theme.colors.textDim} />
+                                        <Text style={{ color: theme.colors.textDim, marginLeft: 4, fontSize: 13 }}>
+                                            {item.sentenceCount.toLocaleString()} 문장
+                                        </Text>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <MaterialCommunityIcons name="calendar" size={14} color={theme.colors.textDim} />
+                                        <Text style={{ color: theme.colors.textDim, marginLeft: 4, fontSize: 13 }}>
+                                            {new Date(item.importedAt).toLocaleDateString()}
+                                        </Text>
+                                    </View>
+                                </View>
                             </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={() => handleDeleteNovel(item)}
-                                style={{
-                                    flex: 1,
-                                    paddingVertical: 12,
-                                    alignItems: 'center',
-                                    backgroundColor: `${theme.colors.error}10`
-                                }}
-                            >
-                                <Text style={{ color: theme.colors.error, fontFamily: 'Pretendard-Medium' }}>삭제</Text>
-                            </TouchableOpacity>
+
+                            <View style={{
+                                flexDirection: 'row',
+                                borderTopWidth: 1,
+                                borderTopColor: `${theme.colors.border}40`,
+                            }}>
+                                <TouchableOpacity
+                                    onPress={() => handleSwitchNovel(item)}
+                                    style={{
+                                        flex: 1,
+                                        paddingVertical: 12,
+                                        alignItems: 'center',
+                                        borderRightWidth: 1,
+                                        borderRightColor: `${theme.colors.border}40`,
+                                        opacity: isActive ? 0.6 : 1,
+                                        backgroundColor: isActive ? `${theme.colors.primary}10` : 'transparent'
+                                    }}
+                                    disabled={isActive}
+                                >
+                                    <Text style={{
+                                        color: isActive ? theme.colors.text : theme.colors.primary,
+                                        fontFamily: 'Pretendard-Medium',
+                                        fontWeight: isActive ? 'bold' : 'normal'
+                                    }}>
+                                        {isActive ? '사용 중' : '열기'}
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => handleDeleteNovel(item)}
+                                    style={{
+                                        flex: 1,
+                                        paddingVertical: 12,
+                                        alignItems: 'center',
+                                        backgroundColor: `${theme.colors.error}10`
+                                    }}
+                                >
+                                    <Text style={{ color: theme.colors.error, fontFamily: 'Pretendard-Medium' }}>삭제</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
-                    </View>
-                )}
+                    );
+                }}
             />
-        </View>
+        </View >
     );
 
     const renderListTab = () => (

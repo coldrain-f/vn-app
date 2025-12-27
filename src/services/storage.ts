@@ -78,12 +78,25 @@ export const saveReadingDict = async (dict: Record<string, string>) => {
     }
 };
 
+export const saveActiveNovelId = async (id: string | null) => {
+    try {
+        if (id) {
+            await AsyncStorage.setItem('activeNovelId', id);
+        } else {
+            await AsyncStorage.removeItem('activeNovelId');
+        }
+    } catch (error) {
+        console.error('Error saving active novel ID:', error);
+    }
+};
+
 export const loadAllData = async (onProgress?: (progress: number) => void): Promise<{
     sentences: Sentence[];
     bookmarks: number[];
     readingDict: Record<string, string>;
     currentIndex: number;
     settings: any;
+    activeNovelId: string | null;
 }> => {
     // 1. Sentences from File System
     const sentences = await loadSentences(onProgress);
@@ -104,7 +117,10 @@ export const loadAllData = async (onProgress?: (progress: number) => void): Prom
     const settingsJson = await AsyncStorage.getItem('settings');
     const settings = settingsJson ? JSON.parse(settingsJson) : null;
 
-    return { sentences, bookmarks, readingDict, currentIndex, settings };
+    // 6. Active Novel ID
+    const activeNovelId = await AsyncStorage.getItem('activeNovelId');
+
+    return { sentences, bookmarks, readingDict, currentIndex, settings, activeNovelId };
 };
 
 // Backup Functions
