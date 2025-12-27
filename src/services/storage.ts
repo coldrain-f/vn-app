@@ -17,18 +17,7 @@ export const saveSentences = async (sentences: Sentence[]): Promise<void> => {
     }
 };
 
-// Load initial data from bundled JSON
-const loadInitialData = async (): Promise<Sentence[]> => {
-    try {
-        // Load directly from bundle
-        const data = require('../../assets/resources/vn-reader-data.json');
-        console.log(`Loaded ${data.length} sentences from bundled asset`);
-        return data;
-    } catch (error) {
-        console.error('Error loading initial data:', error);
-        return [];
-    }
-};
+
 
 export const loadSentences = async (onProgress?: (progress: number) => void): Promise<Sentence[]> => {
     try {
@@ -43,25 +32,15 @@ export const loadSentences = async (onProgress?: (progress: number) => void): Pr
             return sentences;
         } catch (e) {
             // File does not exist or valid JSON not found
-            console.log('No existing data file found, loading from bundle...');
-        }
-        if (onProgress) onProgress(10);
-
-        const initialData = await loadInitialData();
-
-        if (onProgress) onProgress(50);
-
-        if (initialData.length > 0) {
-            console.log(`Saving ${initialData.length} sentences to file system...`);
-            await saveSentences(initialData);
+            console.log('No existing data file found.');
+            if (onProgress) onProgress(100);
+            return [];
         }
 
-        if (onProgress) onProgress(100);
-
-        return initialData;
+        return [];
     } catch (error) {
         console.error('Error loading sentences:', error);
-        return loadInitialData(); // Fallback
+        return [];
     }
 };
 
@@ -153,4 +132,19 @@ export const importBackup = async (backup: any) => {
     if (backup.bookmarks) await saveBookmarks(backup.bookmarks);
     if (backup.readingDict) await saveReadingDict(backup.readingDict);
     if (backup.settings) await saveSettings(backup.settings);
+};
+
+export const resetAppData = async (): Promise<void> => {
+    try {
+        await FileSystem.deleteAsync(SENTENCES_FILE, { idempotent: true });
+        // Also delete active dictionary if exists
+        const dictPath = (FileSystem.documentDirectory || '') + 'active_dictionary.json';
+        await FileSystem.deleteAsync(dictPath, { idempotent: true });
+
+        await AsyncStorage.clear();
+        console.log('App data reset complete.');
+    } catch (error) {
+        console.error('Failed to reset app data:', error);
+        throw error;
+    }
 };

@@ -164,3 +164,14 @@ export const activateNovel = async (novelId: string): Promise<void> => {
         throw error;
     }
 };
+
+export const resetNovelStorage = async (): Promise<void> => {
+    try {
+        await FileSystem.deleteAsync(NOVELS_DIR, { idempotent: true });
+        await FileSystem.deleteAsync(NOVELS_LIST_FILE, { idempotent: true });
+        await initNovelStorage();
+    } catch (error) {
+        console.error('Failed to reset novel storage:', error);
+        throw error;
+    }
+};

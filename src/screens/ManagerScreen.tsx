@@ -31,7 +31,8 @@ import { FuriganaText } from '../components/common/FuriganaText';
 import { ActivityIndicator, Dimensions } from 'react-native';
 import { voiceDownloadManager, DownloadProgress } from '../services/voiceDownloadManager';
 import { BgmSelectionModal, getTrackName } from '../components/common/BgmSelectionModal';
-import { activateNovel, deleteNovel, loadNovelList } from '../services/novelStorage';
+import { activateNovel, deleteNovel, loadNovelList, resetNovelStorage } from '../services/novelStorage';
+import { resetAppData } from '../services/storage';
 import { ImportService } from '../services/importService';
 import { Novel } from '../types';
 
@@ -714,6 +715,35 @@ export const ManagerScreen: React.FC = () => {
                         setDownloadedCount(0);
                         setCacheSize(0);
                         showToastMessage('캐시가 삭제되었습니다');
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleFactoryReset = () => {
+        Alert.alert(
+            '앱 초기화 (주의!)',
+            '모든 소설 데이터, 북마크, 설정, 사전 등이 영구적으로 삭제됩니다. 계속하시겠습니까?',
+            [
+                { text: '취소', style: 'cancel' },
+                {
+                    text: '초기화',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await resetAppData();
+                            await resetNovelStorage();
+
+                            // Reload Store & Lists
+                            await loadData();
+                            await refreshNovelList();
+
+                            showToastMessage('초기화가 완료되었습니다.');
+                        } catch (e) {
+                            console.error(e);
+                            showToastMessage('초기화 실패');
+                        }
                     }
                 }
             ]
@@ -2036,6 +2066,16 @@ export const ManagerScreen: React.FC = () => {
                     WIFI 환경에서 다운로드하면 오프라인에서도 음성과 배경음악을 재생할 수 있습니다
                 </Text>
             </View>
+
+            <View style={{ height: 40 }} />
+
+            <TouchableOpacity
+                style={[styles.backupButton, { borderColor: theme.colors.error, backgroundColor: `${theme.colors.error}10`, marginBottom: 32 }]}
+                onPress={handleFactoryReset}
+            >
+                <MaterialCommunityIcons name="alert" size={18} color={theme.colors.error} />
+                <Text style={{ color: theme.colors.error, marginLeft: 8, fontWeight: 'bold' }}>앱 초기화 (모든 데이터 삭제)</Text>
+            </TouchableOpacity>
         </ScrollView>
     );
 
