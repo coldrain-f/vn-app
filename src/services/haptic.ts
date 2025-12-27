@@ -1,6 +1,7 @@
 // Haptic Feedback Service
 // Provides various haptic feedback patterns for UI interactions
-import { Vibration, Platform } from 'react-native';
+import { Platform } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../store/useAppStore';
 
 export type HapticType =
@@ -10,18 +11,7 @@ export type HapticType =
     | 'success'     // 성공 (저장 완료)
     | 'warning'     // 경고 (확인 필요)
     | 'error'       // 오류
-    | 'selection';  // 선택 변경
-
-// Vibration patterns (duration in ms) - 더 잘 느껴지도록 시간 증가
-const HAPTIC_PATTERNS: Record<HapticType, number | number[]> = {
-    light: 30,          // 가벼운 터치 (버튼 클릭)
-    medium: 50,         // 중간 (문장 이동)
-    heavy: 100,         // 강한 (삭제, 중요 액션)
-    success: [0, 50, 80, 50],    // 짧은 더블 진동
-    warning: [0, 80, 120, 80],   // 긴 더블 진동
-    error: [0, 150, 80, 150, 80, 150], // 세 번 진동
-    selection: 40,      // 선택 변경
-};
+    | 'selection';  // 선택 변경 (가장 약함)
 
 class HapticService {
     /**
@@ -39,18 +29,40 @@ class HapticService {
     /**
      * 햅틱 피드백 실행
      */
-    trigger(type: HapticType = 'light') {
+    async trigger(type: HapticType = 'light') {
         if (!this.isEnabled()) return;
 
         // Web에서는 햅틱 지원 안 함
         if (Platform.OS === 'web') return;
 
-        const pattern = HAPTIC_PATTERNS[type];
-
-        if (Array.isArray(pattern)) {
-            Vibration.vibrate(pattern);
-        } else {
-            Vibration.vibrate(pattern);
+        try {
+            switch (type) {
+                case 'light':
+                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    break;
+                case 'medium':
+                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    break;
+                case 'heavy':
+                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                    break;
+                case 'success':
+                    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    break;
+                case 'warning':
+                    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    break;
+                case 'error':
+                    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                    break;
+                case 'selection':
+                    // 가장 약한 햅틱 - 선택 변경용
+                    await Haptics.selectionAsync();
+                    break;
+            }
+        } catch (e) {
+            // 햅틱 실패 시 무시
+            console.log('Haptic feedback failed:', e);
         }
     }
 
@@ -97,7 +109,7 @@ class HapticService {
     }
 
     /**
-     * 선택 변경 피드백
+     * 선택 변경 피드백 (가장 약함)
      */
     selection() {
         this.trigger('selection');

@@ -78,14 +78,14 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
     const handleSwipeLeft = useCallback(() => {
         if (uniqueDictionaries.length > 1 && selectedDictIndex < uniqueDictionaries.length - 1) {
             setSelectedDictIndex(prev => prev + 1);
-            haptic.selection();
+            haptic.light();
         }
     }, [uniqueDictionaries.length, selectedDictIndex]);
 
     const handleSwipeRight = useCallback(() => {
         if (uniqueDictionaries.length > 1 && selectedDictIndex > 0) {
             setSelectedDictIndex(prev => prev - 1);
-            haptic.selection();
+            haptic.light();
         }
     }, [uniqueDictionaries.length, selectedDictIndex]);
 
@@ -247,7 +247,10 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                                                 borderBottomWidth: 2
                                             }
                                         ]}
-                                        onPress={() => setSelectedDictIndex(index)}
+                                        onPress={() => {
+                                            setSelectedDictIndex(index);
+                                            haptic.light();
+                                        }}
                                     >
                                         <Text style={[
                                             styles.tabText,
