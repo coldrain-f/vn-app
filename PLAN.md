@@ -38,23 +38,23 @@ documentDirectory/
 ## 3. 구현 단계 (Workflow)
 
 ### Phase 1: 기반 구축
-- [ ] `react-native-webview`, `jszip` 설치
-- [ ] `src/services/NovelStorageService.ts` 구현:
-  - `loadNovelList()`: `novels.json` 읽기/쓰기
-  - `saveNovelData(id, sentences, dictionary)`: 파일 시스템에 저장
-  - `loadNovelData(id)`: 문장 및 사전 데이터 로드
+- [x] `react-native-webview`, `jszip` 설치 (Note: `npm install` need to be run by user)
+- [x] `src/services/NovelStorageService.ts` 구현:
+  - [x] `loadNovelList()`: `novels.json` 읽기/쓰기
+  - [x] `saveNovelData(id, sentences, dictionary)`: 파일 시스템에 저장
+  - [x] `loadNovelData(id)`: 문장 및 사전 데이터 로드
 
 ### Phase 2: Import 로직 구현 (`src/services/ImportService.ts`)
-- [ ] `expo-document-picker`로 `.vnpack` 선택
-- [ ] `jszip`으로 압축 해제 (메모리 로드 주의)
-- [ ] `sentences.json`에서 `novelId`, `novelName` 등 메타데이터 추출
-- [ ] `novels/{novel_id}` 폴더 생성 및 JSON 파일 저장
-- [ ] `novels.json` 목록 업데이트
+- [x] `expo-document-picker`로 `.vnpack` 선택
+- [x] `jszip`으로 압축 해제 (메모리 로드 주의)
+- [x] `sentences.json`에서 `novelId`, `novelName` 등 메타데이터 추출
+- [x] `novels/{novel_id}` 폴더 생성 및 JSON 파일 저장
+- [x] `novels.json` 목록 업데이트
 
 ### Phase 3: UI 연동
-- [ ] **ManagerScreen**: `Import` 버튼 추가
-- [ ] **Novel List**: 설치된 Novel 목록 표시 (기존 단일 파일 방식에서 확장 필요할 수 있음)
-- [ ] **NovelReader**: 선택된 Novel 데이터를 로드(`loadNovelData`)하여 표시
+- [x] **ManagerScreen**: `Import` 버튼 및 '소설' 탭 추가
+- [x] **Novel List**: 설치된 Novel 목록 표시 및 관리 기능 구현
+- [x] **NovelReader**: 선택된 Novel 데이터 로드 로직 구현 (`activateNovel`으로 메인 파일 교체)
 
 ### Phase 4: 사전 팝업 (`DictionaryModal`)
 - [ ] `WebView` 추가

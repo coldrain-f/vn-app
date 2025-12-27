@@ -14,7 +14,7 @@ import { managerStyles as styles } from '../styles';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import { useAppStore } from '../store/useAppStore';
@@ -31,6 +31,9 @@ import { FuriganaText } from '../components/common/FuriganaText';
 import { ActivityIndicator, Dimensions } from 'react-native';
 import { voiceDownloadManager, DownloadProgress } from '../services/voiceDownloadManager';
 import { BgmSelectionModal, getTrackName } from '../components/common/BgmSelectionModal';
+import { activateNovel, deleteNovel, loadNovelList } from '../services/novelStorage';
+import { ImportService } from '../services/importService';
+import { Novel } from '../types';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -63,12 +66,88 @@ export const ManagerScreen: React.FC = () => {
         updateSentence,
         selectAll,
         toggleBookmark,
+        loadData,
     } = useAppStore();
 
     const theme = getTheme(settings.theme);
 
     // Refs
     const listRef = useRef<FlatList>(null);
+
+    // Novel Management
+    const [novels, setNovels] = useState<Novel[]>([]);
+    const [refreshingNovels, setRefreshingNovels] = useState(false);
+
+    const refreshNovelList = useCallback(async () => {
+        setRefreshingNovels(true);
+        const list = await loadNovelList();
+        setNovels(list);
+        setRefreshingNovels(false);
+    }, []);
+
+    React.useEffect(() => {
+        refreshNovelList();
+    }, [refreshNovelList]);
+
+
+
+    const handleImportNovel = async () => {
+        try {
+            const success = await ImportService.pickAndImportNovel((p, m) => {
+                if (p % 20 === 0) showToastMessage(`${m} (${Math.round(p)}%)`);
+            });
+            if (success) {
+                await refreshNovelList();
+                showToastMessage('소설 가져오기 완료');
+            }
+        } catch (e) {
+            console.error(e);
+            showToastMessage('가져오기 실패: ' + (e as any).message);
+        }
+    };
+
+    const handleSwitchNovel = async (novel: Novel) => {
+        Alert.alert(
+            '소설 열기',
+            `"${novel.title}"을(를) 여시겠습니까?`,
+            [
+                { text: '취소', style: 'cancel' },
+                {
+                    text: '열기',
+                    onPress: async () => {
+                        try {
+                            await activateNovel(novel.id);
+                            await loadData();
+                            showToastMessage('소설을 로드했습니다');
+                            navigation.navigate('Reader');
+                        } catch (e) {
+                            console.error(e);
+                            showToastMessage('소설 로드 실패');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleDeleteNovel = async (novel: Novel) => {
+        Alert.alert(
+            '소설 삭제',
+            `"${novel.title}"을(를) 삭제하시겠습니까?`,
+            [
+                { text: '취소', style: 'cancel' },
+                {
+                    text: '삭제',
+                    style: 'destructive',
+                    onPress: async () => {
+                        await deleteNovel(novel.id);
+                        await refreshNovelList();
+                        showToastMessage('삭제되었습니다');
+                    }
+                }
+            ]
+        );
+    };
 
     // UI State
     const [activeTab, setActiveTab] = useState<TabName>('list');
@@ -643,6 +722,7 @@ export const ManagerScreen: React.FC = () => {
 
     // Tab config
     const tabs: { key: TabName; icon: string; label: string }[] = [
+        { key: 'novels', icon: 'book-open-page-variant', label: '소설' },
         { key: 'list', icon: 'format-list-bulleted', label: '목록' },
         { key: 'bookmarks', icon: 'star', label: '북마크' },
         { key: 'add', icon: 'plus-circle', label: '추가' },
@@ -848,6 +928,117 @@ export const ManagerScreen: React.FC = () => {
             </View>
         );
     }, [sentences, selectedSentences, bookmarks, theme, toggleSelection, handleGoToSentence, handleOpenEdit]);
+
+    const renderNovelsTab = () => (
+        <View style={styles.tabContent}>
+            <View style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ color: theme.colors.textDim }}>설치된 소설: {novels.length}개</Text>
+                <TouchableOpacity
+                    style={{
+                        flexDirection: 'row',
+                        backgroundColor: theme.colors.primary,
+                        paddingVertical: 8,
+                        paddingHorizontal: 16,
+                        borderRadius: 8,
+                        alignItems: 'center'
+                    }}
+                    onPress={handleImportNovel}
+                >
+                    <MaterialCommunityIcons name="import" size={18} color={theme.colors.dark} />
+                    <Text style={{ color: theme.colors.dark, marginLeft: 6, fontWeight: 'bold' }}>소설 가져오기 (.vnpack)</Text>
+                </TouchableOpacity>
+            </View>
+
+            <FlatList
+                data={novels}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={{ padding: 16 }}
+                refreshing={refreshingNovels}
+                onRefresh={refreshNovelList}
+                ListEmptyComponent={
+                    <View style={{ alignItems: 'center', marginTop: 40 }}>
+                        <MaterialCommunityIcons name="book-open-page-variant" size={48} color={`${theme.colors.textDim}50`} />
+                        <Text style={{ color: theme.colors.textDim, marginTop: 16 }}>설치된 소설이 없습니다.</Text>
+                        <Text style={{ color: theme.colors.textDim, marginTop: 4 }}>'.vnpack' 파일을 가져와주세요.</Text>
+                    </View>
+                }
+                renderItem={({ item }) => (
+                    <View style={{
+                        backgroundColor: theme.colors.panel,
+                        borderRadius: 12,
+                        marginBottom: 12,
+                        overflow: 'hidden',
+                        borderWidth: 1,
+                        borderColor: `${theme.colors.border}50`
+                    }}>
+                        <TouchableOpacity
+                            onPress={() => handleSwitchNovel(item)}
+                            style={{ padding: 16 }}
+                        >
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={{ color: theme.colors.text, fontSize: 18, fontFamily: 'Pretendard-Bold', marginBottom: 4 }}>
+                                        {item.title}
+                                    </Text>
+                                    <Text style={{ color: theme.colors.textDim, fontSize: 12 }}>
+                                        ID: {item.id}
+                                    </Text>
+                                </View>
+                                <View style={{ padding: 4, backgroundColor: `${theme.colors.primary}10`, borderRadius: 4 }}>
+                                    <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.primary} />
+                                </View>
+                            </View>
+
+                            <View style={{ flexDirection: 'row', marginTop: 12, gap: 16 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <MaterialCommunityIcons name="format-list-numbered" size={14} color={theme.colors.textDim} />
+                                    <Text style={{ color: theme.colors.textDim, marginLeft: 4, fontSize: 13 }}>
+                                        {item.sentenceCount.toLocaleString()} 문장
+                                    </Text>
+                                </View>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <MaterialCommunityIcons name="calendar" size={14} color={theme.colors.textDim} />
+                                    <Text style={{ color: theme.colors.textDim, marginLeft: 4, fontSize: 13 }}>
+                                        {new Date(item.importedAt).toLocaleDateString()}
+                                    </Text>
+                                </View>
+                            </View>
+                        </TouchableOpacity>
+
+                        <View style={{
+                            flexDirection: 'row',
+                            borderTopWidth: 1,
+                            borderTopColor: `${theme.colors.border}40`,
+                        }}>
+                            <TouchableOpacity
+                                onPress={() => handleSwitchNovel(item)}
+                                style={{
+                                    flex: 1,
+                                    paddingVertical: 12,
+                                    alignItems: 'center',
+                                    borderRightWidth: 1,
+                                    borderRightColor: `${theme.colors.border}40`
+                                }}
+                            >
+                                <Text style={{ color: theme.colors.primary, fontFamily: 'Pretendard-Medium' }}>열기</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => handleDeleteNovel(item)}
+                                style={{
+                                    flex: 1,
+                                    paddingVertical: 12,
+                                    alignItems: 'center',
+                                    backgroundColor: `${theme.colors.error}10`
+                                }}
+                            >
+                                <Text style={{ color: theme.colors.error, fontFamily: 'Pretendard-Medium' }}>삭제</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+            />
+        </View>
+    );
 
     const renderListTab = () => (
         <View style={[
@@ -1880,6 +2071,7 @@ export const ManagerScreen: React.FC = () => {
                             setActiveTab(tab.key);
                             setCurrentPage(0);
                             setSearchQuery('');
+                            if (tab.key === 'novels') refreshNovelList();
                         }}
                     >
                         <MaterialCommunityIcons
@@ -1898,6 +2090,7 @@ export const ManagerScreen: React.FC = () => {
             </View>
 
             {/* Tab Content */}
+            {activeTab === 'novels' && renderNovelsTab()}
             {activeTab === 'list' && renderListTab()}
             {activeTab === 'bookmarks' && renderListTab()}
             {activeTab === 'add' && renderAddTab()}

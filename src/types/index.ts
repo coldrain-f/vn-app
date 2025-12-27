@@ -79,7 +79,7 @@ export interface KanjiInfo {
     jlptLevel: string;
 }
 
-export type TabName = 'list' | 'bookmarks' | 'add' | 'dict' | 'settings';
+export type TabName = 'novels' | 'list' | 'bookmarks' | 'add' | 'dict' | 'settings';
 
 export interface BatchResult {
     index: number;

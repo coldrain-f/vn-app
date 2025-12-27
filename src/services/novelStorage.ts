@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Novel, Sentence, DictionaryData } from '../types';
 
 const NOVELS_DIR = FileSystem.documentDirectory + 'novels/';
@@ -19,7 +19,7 @@ export const initNovelStorage = async (): Promise<void> => {
 // Load list of installed novels
 export const loadNovelList = async (): Promise<Novel[]> => {
     try {
-        await initNovelStorage(); // Ensure dir exists
+        await initNovelStorage();
 
         const fileInfo = await FileSystem.getInfoAsync(NOVELS_LIST_FILE);
         if (!fileInfo.exists) {
@@ -52,22 +52,18 @@ export const saveNovelData = async (
     const novelDir = NOVELS_DIR + novel.id + '/';
 
     try {
-        // 1. Create directory
         await FileSystem.makeDirectoryAsync(novelDir, { intermediates: true });
 
-        // 2. Save sentences.json
         await FileSystem.writeAsStringAsync(
             novelDir + 'sentences.json',
             JSON.stringify(sentences)
         );
 
-        // 3. Save dictionary.json
         await FileSystem.writeAsStringAsync(
             novelDir + 'dictionary.json',
             JSON.stringify(dictionary)
         );
 
-        // 4. Update novel list
         const novels = await loadNovelList();
         const existingIndex = novels.findIndex(n => n.id === novel.id);
 
@@ -81,7 +77,6 @@ export const saveNovelData = async (
 
     } catch (error) {
         console.error(`Failed to save novel data for ${novel.id}:`, error);
-        // Clean up partial data
         try {
             await FileSystem.deleteAsync(novelDir, { idempotent: true });
         } catch (e) {
@@ -91,7 +86,6 @@ export const saveNovelData = async (
     }
 };
 
-// Load sentences for a specific novel
 export const loadNovelSentences = async (novelId: string): Promise<Sentence[]> => {
     const path = NOVELS_DIR + novelId + '/sentences.json';
     try {
@@ -107,7 +101,6 @@ export const loadNovelSentences = async (novelId: string): Promise<Sentence[]> =
     }
 };
 
-// Load dictionary for a specific novel
 export const loadNovelDictionary = async (novelId: string): Promise<DictionaryData | null> => {
     const path = NOVELS_DIR + novelId + '/dictionary.json';
     try {
@@ -118,27 +111,56 @@ export const loadNovelDictionary = async (novelId: string): Promise<DictionaryDa
         return JSON.parse(content);
     } catch (error) {
         console.error(`Failed to load dictionary for ${novelId}:`, error);
-        return null; // Dictionary might be optional or broken
+        return null;
     }
 };
 
-// Delete a novel
 export const deleteNovel = async (novelId: string): Promise<void> => {
     const novelDir = NOVELS_DIR + novelId + '/';
     try {
-        // Remove directory
         const dirInfo = await FileSystem.getInfoAsync(novelDir);
         if (dirInfo.exists) {
             await FileSystem.deleteAsync(novelDir, { idempotent: true });
         }
 
-        // Update list
         const novels = await loadNovelList();
         const updatedNovels = novels.filter(n => n.id !== novelId);
         await saveNovelList(updatedNovels);
 
     } catch (error) {
         console.error(`Failed to delete novel ${novelId}:`, error);
+        throw error;
+    }
+};
+
+// Activate a novel (copy to main files)
+export const activateNovel = async (novelId: string): Promise<void> => {
+    const novelDir = NOVELS_DIR + novelId + '/';
+    // Matches storage.ts SENTENCES_FILE constant standard
+    const mainSentencesPath = FileSystem.documentDirectory + 'sentences.json';
+    const mainDictPath = FileSystem.documentDirectory + 'active_dictionary.json';
+
+    try {
+        // Sentences
+        await FileSystem.deleteAsync(mainSentencesPath, { idempotent: true });
+        await FileSystem.copyAsync({
+            from: novelDir + 'sentences.json',
+            to: mainSentencesPath
+        });
+
+        // Dictionary
+        await FileSystem.deleteAsync(mainDictPath, { idempotent: true });
+        const dictSrc = novelDir + 'dictionary.json';
+        const dictInfo = await FileSystem.getInfoAsync(dictSrc);
+
+        if (dictInfo.exists) {
+            await FileSystem.copyAsync({
+                from: dictSrc,
+                to: mainDictPath
+            });
+        }
+    } catch (error) {
+        console.error(`Failed to activate novel ${novelId}:`, error);
         throw error;
     }
 };
