@@ -102,6 +102,15 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                     
                     /* Overrides for better mobile display */
                     img { max-width: 100%; height: auto; }
+                    
+                    /* Gaiji (external characters) - inline sizing */
+                    img[src*="gaiji"] {
+                        width: 1.2em !important;
+                        height: auto !important;
+                        max-width: none !important;
+                        vertical-align: text-bottom;
+                        display: inline-block;
+                    }
                 </style>
             </head>
             <body>
@@ -124,20 +133,20 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
         >
             <View style={styles.overlay}>
                 <TouchableOpacity style={styles.backdrop} onPress={onClose} />
-                <View style={[styles.modalContainer, { backgroundColor: theme.colors.panel }]}>
+                <View style={[styles.modalContainer, { backgroundColor: '#FFFFFF' }]}>
                     {/* Header */}
-                    <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
-                        <Text style={[styles.title, { color: theme.colors.text }]}>
+                    <View style={[styles.header, { borderBottomColor: '#E2E8F0' }]}>
+                        <Text style={[styles.title, { color: '#1e293b' }]}>
                             {word}
                         </Text>
                         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                            <MaterialCommunityIcons name="close" size={24} color={theme.colors.textDim} />
+                            <MaterialCommunityIcons name="close" size={24} color="#64748b" />
                         </TouchableOpacity>
                     </View>
 
                     {/* Dictionary Tabs */}
                     {uniqueDictionaries.length > 1 && (
-                        <View style={[styles.tabsContainer, { borderBottomColor: theme.colors.border }]}>
+                        <View style={[styles.tabsContainer, { borderBottomColor: '#E2E8F0' }]}>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                 {uniqueDictionaries.map((dictName, index) => (
                                     <TouchableOpacity
@@ -145,7 +154,7 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                                         style={[
                                             styles.tab,
                                             selectedDictIndex === index && {
-                                                borderBottomColor: theme.colors.primary,
+                                                borderBottomColor: '#0284C7',
                                                 borderBottomWidth: 2
                                             }
                                         ]}
@@ -153,7 +162,7 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                                     >
                                         <Text style={[
                                             styles.tabText,
-                                            { color: selectedDictIndex === index ? theme.colors.primary : theme.colors.textDim }
+                                            { color: selectedDictIndex === index ? '#0284C7' : '#64748b' }
                                         ]}>
                                             {dictName}
                                         </Text>
