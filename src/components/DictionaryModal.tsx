@@ -222,17 +222,26 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                     {/* Content */}
                     <View style={styles.contentContainer}>
                         {entries.length > 0 ? (
-                            <WebView
-                                originWhitelist={['*']}
-                                source={{ html: currentHtml || '' }}
-                                style={{ backgroundColor: '#FFFFFF' }}
-                                showsVerticalScrollIndicator={true}
-                            />
+                            <>
+                                <WebView
+                                    originWhitelist={['*']}
+                                    source={{ html: currentHtml || '' }}
+                                    style={{ backgroundColor: '#FFFFFF', flex: 1 }}
+                                    showsVerticalScrollIndicator={true}
+                                    startInLoadingState={true}
+                                    renderLoading={() => (
+                                        <View style={styles.loadingContainer}>
+                                            <ActivityIndicator size="large" color="#0284C7" />
+                                            <Text style={styles.loadingText}>로딩 중...</Text>
+                                        </View>
+                                    )}
+                                />
+                            </>
                         ) : (
                             <View style={styles.emptyContainer}>
-                                <Text style={{ color: theme.colors.textDim }}>
-                                    사전 데이터가 없습니다.
-                                </Text>
+                                <MaterialCommunityIcons name="book-open-variant" size={48} color="#CBD5E1" />
+                                <Text style={styles.emptyTitle}>「{word}」</Text>
+                                <Text style={styles.emptyText}>사전에서 찾을 수 없습니다</Text>
                             </View>
                         )}
                     </View>
@@ -299,5 +308,35 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        padding: 32,
+    },
+    emptyTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#1e293b',
+        marginTop: 16,
+        fontFamily: 'Pretendard-Medium',
+    },
+    emptyText: {
+        fontSize: 14,
+        color: '#64748b',
+        marginTop: 8,
+        fontFamily: 'Pretendard-Regular',
+    },
+    loadingContainer: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+    },
+    loadingText: {
+        fontSize: 14,
+        color: '#64748b',
+        marginTop: 12,
+        fontFamily: 'Pretendard-Regular',
     },
 });
