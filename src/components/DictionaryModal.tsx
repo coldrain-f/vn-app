@@ -69,56 +69,49 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
         const targetEntries = entries.filter(e => e.dictionary === selectedDictName);
         if (targetEntries.length === 0) return null;
 
-        const css = dictionaryData.css[selectedDictName] || '';
+        // Get common CSS and dictionary-specific CSS
+        const commonCss = dictionaryData.css['_common'] || '';
+        const dictCss = dictionaryData.css[selectedDictName] || '';
 
         // Merge HTMLs
         const mergedHtml = targetEntries.map(e => e.html).join('<hr class="entry-divider" style="margin: 20px 0; border: 0; border-top: 1px dashed #ccc;" />');
 
-        // Inject absolute image paths (Polyfill for <base> issues)
-        const R2_BASE_URL = 'https://pub-ced4ba529aee44d4be6d41ac76678ba5.r2.dev/';
-        const finalHtmlContent = mergedHtml.replace(/src="images_hitsujun\//g, `src="${R2_BASE_URL}images_hitsujun/`);
-
-        console.log('[DictionaryModal] HTML Preview:', finalHtmlContent.substring(0, 200));
-
-        // Base HTML structure with injected CSS and dark mode support if needed
+        // Base HTML structure - Light background to match SUDACHI LAB
         return `
             <!DOCTYPE html>
             <html>
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
                 <style>
-                    :root {
-                        --background-color: ${theme.colors.background};
-                        --text-color: ${theme.colors.text};
-                        --primary-color: ${theme.colors.primary};
-                        --border-color: ${theme.colors.border};
-                    }
+                    /* Common Dictionary Styles */
+                    ${commonCss}
+                    
+                    /* Dictionary-specific Styles */
+                    ${dictCss}
+                    
+                    /* Base body styling - Light theme for compatibility */
                     body {
-                        background-color: var(--background-color);
-                        color: var(--text-color);
-                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                        background-color: #FFFFFF;
+                        color: #1e293b;
+                        font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
                         padding: 16px;
                         margin: 0;
                         font-size: 16px;
-                        line-height: 1.5;
+                        line-height: 1.6;
                     }
-                    /* Injected Dictionary CSS */
-                    ${css}
                     
                     /* Overrides for better mobile display */
                     img { max-width: 100%; height: auto; }
-                    a { color: var(--primary-color); text-decoration: none; }
                 </style>
             </head>
             <body>
-                ${mergedHtml}
-                <script>
-                    // Prevent link navigation if needed, or handle it
-                </script>
+                <div class="dict-entries">
+                    ${mergedHtml}
+                </div>
             </body>
             </html>
         `;
-    }, [entries, selectedDictName, dictionaryData, theme]);
+    }, [entries, selectedDictName, dictionaryData]);
 
     if (!dictionaryData) return null;
 
@@ -176,7 +169,7 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                             <WebView
                                 originWhitelist={['*']}
                                 source={{ html: currentHtml || '' }}
-                                style={{ backgroundColor: theme.colors.background }}
+                                style={{ backgroundColor: '#FFFFFF' }}
                                 showsVerticalScrollIndicator={true}
                             />
                         ) : (
