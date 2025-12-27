@@ -111,6 +111,34 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                         vertical-align: text-bottom;
                         display: inline-block;
                     }
+                    
+                    /* Details/Summary styling */
+                    details {
+                        margin: 0.5em 0;
+                    }
+                    
+                    summary {
+                        cursor: pointer;
+                    }
+                    
+                    /* Hide dictionary's text-based arrow from [data-summary]::before */
+                    [data-summary]::before {
+                        display: none !important;
+                        content: none !important;
+                    }
+                    
+                    /* Expanded content styling */
+                    details[open] > *:not(summary) {
+                        padding-left: 1em;
+                        border-left: 2px solid #E2E8F0;
+                        margin-left: 0.5em;
+                    }
+                    
+                    /* Visual feedback when open */
+                    details[open] > summary {
+                        color: #0284C7;
+                        font-weight: 600;
+                    }
                 </style>
             </head>
             <body>
