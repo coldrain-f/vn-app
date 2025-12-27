@@ -35,6 +35,7 @@ interface AppState {
 
     // Actions - Bookmarks
     toggleBookmark: (index?: number) => void;
+    setBookmarks: (bookmarks: Set<number>) => void;
 
     // Actions - Settings
     setSettings: (settings: Partial<Settings>) => void;
@@ -215,6 +216,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
         set({ bookmarks: newBookmarks });
         storage.saveBookmarks(newBookmarks);
+    },
+
+    setBookmarks: (bookmarks) => {
+        set({ bookmarks });
+        storage.saveBookmarks(bookmarks);
     },
 
     // Settings actions

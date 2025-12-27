@@ -103,3 +103,9 @@ export interface DictionaryData {
     css: Record<string, string>;
     entries: Record<string, { dictionary: string; html: string }[]>;
 }
+
+// Per-novel progress tracking
+export interface NovelProgress {
+    currentIndex: number;
+    bookmarks: number[];
+}

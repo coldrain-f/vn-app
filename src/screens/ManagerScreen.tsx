@@ -31,7 +31,7 @@ import { FuriganaText } from '../components/common/FuriganaText';
 import { ActivityIndicator, Dimensions } from 'react-native';
 import { voiceDownloadManager, DownloadProgress } from '../services/voiceDownloadManager';
 import { BgmSelectionModal, getTrackName } from '../components/common/BgmSelectionModal';
-import { activateNovel, deleteNovel, loadNovelList, resetNovelStorage } from '../services/novelStorage';
+import { activateNovel, deleteNovel, loadNovelList, resetNovelStorage, saveNovelProgress, loadNovelProgress } from '../services/novelStorage';
 import { resetAppData } from '../services/storage';
 import { ImportService } from '../services/importService';
 import { Novel } from '../types';
@@ -51,6 +51,7 @@ export const ManagerScreen: React.FC = () => {
         deleteSentence,
         setSettings,
         setCurrentIndex,
+        setBookmarks,
         selectedListItems,
         selectedBookmarkItems,
         toggleSelection,
@@ -135,9 +136,29 @@ export const ManagerScreen: React.FC = () => {
                     text: '열기',
                     onPress: async () => {
                         try {
+                            // Save current progress before switching
+                            if (activeNovelId) {
+                                await saveNovelProgress(activeNovelId, {
+                                    currentIndex,
+                                    bookmarks: Array.from(bookmarks),
+                                });
+                            }
+
+                            // Activate new novel
                             await activateNovel(novel.id);
                             await loadData();
                             setActiveNovelId(novel.id);
+
+                            // Restore new novel's progress
+                            const savedProgress = await loadNovelProgress(novel.id);
+                            if (savedProgress) {
+                                setCurrentIndex(savedProgress.currentIndex);
+                                setBookmarks(new Set(savedProgress.bookmarks));
+                            } else {
+                                setCurrentIndex(0);
+                                setBookmarks(new Set());
+                            }
+
                             showToastMessage('소설을 로드했습니다');
                             navigation.navigate('Reader');
                         } catch (e) {
@@ -160,9 +181,41 @@ export const ManagerScreen: React.FC = () => {
                     text: '삭제',
                     style: 'destructive',
                     onPress: async () => {
+                        const isCurrentNovel = activeNovelId === novel.id;
+
                         await deleteNovel(novel.id);
                         await refreshNovelList();
-                        showToastMessage('삭제되었습니다');
+
+                        // If deleted current novel, switch to another or clear
+                        if (isCurrentNovel) {
+                            const remainingNovels = await loadNovelList();
+                            if (remainingNovels.length > 0) {
+                                // Auto-switch to first remaining novel
+                                const nextNovel = remainingNovels[0];
+                                await activateNovel(nextNovel.id);
+                                await loadData();
+                                setActiveNovelId(nextNovel.id);
+
+                                // Restore progress for new novel
+                                const savedProgress = await loadNovelProgress(nextNovel.id);
+                                if (savedProgress) {
+                                    setCurrentIndex(savedProgress.currentIndex);
+                                    setBookmarks(new Set(savedProgress.bookmarks));
+                                } else {
+                                    setCurrentIndex(0);
+                                    setBookmarks(new Set());
+                                }
+                                showToastMessage(`${nextNovel.title}로 전환되었습니다`);
+                            } else {
+                                // No novels left - clear state
+                                setActiveNovelId(null);
+                                setCurrentIndex(0);
+                                setBookmarks(new Set());
+                                showToastMessage('삭제되었습니다');
+                            }
+                        } else {
+                            showToastMessage('삭제되었습니다');
+                        }
                     }
                 }
             ]

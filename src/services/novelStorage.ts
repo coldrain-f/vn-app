@@ -1,5 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import { Novel, Sentence, DictionaryData } from '../types';
+import { Novel, Sentence, DictionaryData, NovelProgress } from '../types';
 
 const NOVELS_DIR = FileSystem.documentDirectory + 'novels/';
 const NOVELS_LIST_FILE = FileSystem.documentDirectory + 'novels.json';
@@ -111,6 +111,33 @@ export const loadNovelDictionary = async (novelId: string): Promise<DictionaryDa
         return JSON.parse(content);
     } catch (error) {
         console.error(`Failed to load dictionary for ${novelId}:`, error);
+        return null;
+    }
+};
+
+// Save progress for a novel
+export const saveNovelProgress = async (novelId: string, progress: NovelProgress): Promise<void> => {
+    const path = NOVELS_DIR + novelId + '/progress.json';
+    try {
+        await FileSystem.writeAsStringAsync(path, JSON.stringify(progress));
+    } catch (error) {
+        console.error(`Failed to save progress for ${novelId}:`, error);
+        // Don't throw - progress saving failure shouldn't block other operations
+    }
+};
+
+// Load progress for a novel
+export const loadNovelProgress = async (novelId: string): Promise<NovelProgress | null> => {
+    const path = NOVELS_DIR + novelId + '/progress.json';
+    try {
+        const info = await FileSystem.getInfoAsync(path);
+        if (!info.exists) {
+            return null;
+        }
+        const content = await FileSystem.readAsStringAsync(path);
+        return JSON.parse(content);
+    } catch (error) {
+        console.error(`Failed to load progress for ${novelId}:`, error);
         return null;
     }
 };
