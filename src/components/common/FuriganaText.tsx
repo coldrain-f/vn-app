@@ -7,6 +7,8 @@ import { getTheme } from '../../theme';
 import { isKanji } from '../../utils/kanjiData';
 import { haptic } from '../../services/haptic';
 
+import { Token } from '../../types';
+
 interface FuriganaTextProps {
     text: string;
     reading?: string;
@@ -15,7 +17,8 @@ interface FuriganaTextProps {
     furiganaStyle?: object;
     fontSize?: number;
     onKanjiPress?: (kanji: string | string[]) => void;
-    onPress?: (event: any) => void;  // For short tap navigation
+    onPress?: (event: any) => void;
+    tokens?: Token[]; // Added tokens prop
 }
 
 export const FuriganaText: React.FC<FuriganaTextProps> = ({
@@ -27,31 +30,94 @@ export const FuriganaText: React.FC<FuriganaTextProps> = ({
     fontSize = 22,
     onKanjiPress,
     onPress,
+    tokens,
 }) => {
     const { settings } = useAppStore();
     const theme = getTheme(settings.theme);
 
-    const displayText = reading || text;
-    const parts = parseFurigana(displayText);
     const furiSize = fontSize * 0.5;
-
-    // Line height: Was fontSize + 6 (~28 for 22px), user says "too high".
-    // Try reduced line height.
-    const containerLineHeight = fontSize + 12; // Sufficient for ruby + base
+    // const containerLineHeight = fontSize + 12; // Unused
     const baseLineHeight = fontSize + 4;
 
-    // Split parts into renderable items (single chars for plain text)
+    const fontFamily = isLoaded('YuMincho') ? 'YuMincho' : 'Pretendard-Medium';
+
+    // RENDER STRATEGY 1: Token-based (Priority)
+    if (tokens && tokens.length > 0) {
+        return (
+            <View style={styles.container}>
+                {tokens.map((token, index) => {
+                    // Check if newline
+                    if (token.surface === '\n') {
+                        return <View key={index} style={{ width: '100%', height: 0 }} />;
+                    }
+
+                    // Lookup target: baseForm -> dictForm -> surface
+                    const lookupTarget = token.baseForm || token.dictForm || token.surface;
+
+                    // Determine display content
+                    // If surface has brackets, use parseFurigana
+                    const parts = parseFurigana(token.surface);
+
+                    // If no brackets but we have a reading, and it differs from surface (and strictly kana/kanji check?), 
+                    // force group ruby.
+                    // But simplest is: if parseFurigana returned 1 part with no reading, AND we have token.reading, use that.
+                    if (parts.length === 1 && !parts[0].reading && token.reading && token.reading !== token.surface) {
+                        // Force reading? 
+                        // Check if surface contains Kanji
+                        if (/[一-龯]/.test(token.surface)) {
+                            parts[0].reading = token.reading;
+                        }
+                    }
+
+                    // Now render this token as a unit
+                    return (
+                        <InteractiveToken
+                            key={index}
+                            parts={parts}
+                            lookupTarget={lookupTarget}
+                            onKanjiPress={onKanjiPress}
+                            onPress={onPress}
+                            baseStyle={{
+                                fontSize: fontSize,
+                                lineHeight: baseLineHeight,
+                                color: theme.colors.textLight,
+                                fontFamily: 'Pretendard-Medium',
+                                includeFontPadding: false,
+                                textAlignVertical: 'center',
+                                ...((textStyle as any) || {})
+                            }}
+                            furiStyle={{
+                                fontSize: furiSize,
+                                lineHeight: furiSize,
+                                color: theme.colors.primaryDim,
+                                fontFamily: 'Pretendard-Medium',
+                                marginBottom: 0,
+                                includeFontPadding: false,
+                                textAlignVertical: 'center',
+                                ...((furiganaStyle as any) || {})
+                            }}
+                            showFurigana={showFurigana}
+                            accentColor={theme.colors.accent}
+                        />
+                    );
+                })}
+            </View>
+        );
+    }
+
+    // RENDER STRATEGY 2: Legacy String-based
+    const displayText = reading || text;
+    const parts = parseFurigana(displayText);
     const renderItems: FuriganaPart[] = [];
     parts.forEach(part => {
         if (part.reading) {
             renderItems.push(part);
         } else {
-            // Split plain text into characters for better wrapping
             const chars = part.text.split('');
             chars.forEach(char => {
                 renderItems.push({
                     text: char,
-                    reading: undefined // Plain char has no reading
+                    reading: undefined
                 });
             });
         }
@@ -60,7 +126,6 @@ export const FuriganaText: React.FC<FuriganaTextProps> = ({
     return (
         <View style={styles.container}>
             {renderItems.map((item, index) => {
-                // Handle newlines explicitly
                 if (item.text === '\n') {
                     return <View key={index} style={{ width: '100%', height: 0 }} />;
                 }
@@ -73,13 +138,12 @@ export const FuriganaText: React.FC<FuriganaTextProps> = ({
                         lineHeight: baseLineHeight,
                         color: theme.colors.textLight,
                         fontFamily: 'Pretendard-Medium',
-                        includeFontPadding: false, // Fix vertical alignment on Android
+                        includeFontPadding: false,
                         textAlignVertical: 'center',
                     },
                     textStyle,
                 ];
 
-                // For plain text (no reading), furigana is transparent spacer
                 const furiColor = part.reading ? theme.colors.primaryDim : 'transparent';
                 const furiText = part.reading && showFurigana ? part.reading : ' ';
 
@@ -90,11 +154,11 @@ export const FuriganaText: React.FC<FuriganaTextProps> = ({
                                 styles.furigana,
                                 {
                                     fontSize: furiSize,
-                                    lineHeight: furiSize, // Tighten line height to exact size
+                                    lineHeight: furiSize,
                                     color: furiColor,
                                     fontFamily: 'Pretendard-Medium',
-                                    marginBottom: 0, // Remove negative margin
-                                    includeFontPadding: false, // Fix vertical alignment on Android
+                                    marginBottom: 0,
+                                    includeFontPadding: false,
                                     textAlignVertical: 'center',
                                 },
                                 furiganaStyle,
@@ -121,6 +185,62 @@ export const FuriganaText: React.FC<FuriganaTextProps> = ({
     );
 };
 
+// Component for rendering a full token (possibly multiple ruby parts) as one interactive unit
+const InteractiveToken: React.FC<{
+    parts: FuriganaPart[];
+    lookupTarget: string;
+    onKanjiPress?: (target: string) => void;
+    onPress?: (event: any) => void;
+    baseStyle: any;
+    furiStyle: any;
+    showFurigana: boolean;
+    accentColor: string;
+}> = ({ parts, lookupTarget, onKanjiPress, onPress, baseStyle, furiStyle, showFurigana, accentColor }) => {
+    const [isPressed, setIsPressed] = useState(false);
+
+    const handlePressIn = () => {
+        setIsPressed(true);
+        haptic.medium();
+    };
+
+    const handlePressOut = () => {
+        setIsPressed(false);
+    };
+
+    const handlePress = () => {
+        if (onKanjiPress) {
+            onKanjiPress(lookupTarget);
+        }
+    };
+
+    return (
+        <Pressable
+            onPress={onPress || handlePress}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+            delayLongPress={300}
+            style={({ pressed }) => [styles.rubyUnit, { opacity: pressed ? 0.7 : 1 }]}
+        >
+            {/* Render all parts of this token sequentially */}
+            {parts.map((part, idx) => {
+                const furiText = part.reading && showFurigana ? part.reading : ' ';
+                const furiColor = part.reading ? furiStyle.color : 'transparent';
+
+                return (
+                    <View key={idx} style={{ alignItems: 'center' }}>
+                        <Text style={[furiStyle, { color: furiColor }]}>
+                            {furiText}
+                        </Text>
+                        <Text style={[baseStyle, isPressed && { color: accentColor }]}>
+                            {part.text}
+                        </Text>
+                    </View>
+                );
+            })}
+        </Pressable>
+    );
+};
+
 // Sub-component for handling press state independently
 const InteractiveKanji: React.FC<{
     text: string;
@@ -136,10 +256,8 @@ const InteractiveKanji: React.FC<{
     const hasKanji = kanjiChars.length > 0;
 
     const handlePressIn = () => {
-        if (hasKanji) {
-            setIsPressed(true);
-            haptic.medium();
-        }
+        setIsPressed(true);
+        haptic.medium();
     };
 
     const handlePressOut = () => {
@@ -153,12 +271,18 @@ const InteractiveKanji: React.FC<{
         }
     };
 
+    const handlePress = () => {
+        // Treat short press as word lookup
+        // We pass the full text as the "kanji" argument for now, ReaderScreen will distinguish
+        onKanjiPress(text);
+    };
+
     return (
         <Pressable
-            onPress={onPress}
+            onPress={onPress || handlePress}
             onLongPress={hasKanji ? handleLongPress : undefined}
-            onPressIn={hasKanji ? handlePressIn : undefined}
-            onPressOut={hasKanji ? handlePressOut : undefined}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
             delayLongPress={300}
         >
             <Text style={[baseStyle, isPressed && { color: accentColor }]}>

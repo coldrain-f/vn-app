@@ -2,10 +2,12 @@
 import * as FileSystem from 'expo-file-system/legacy';
 // import { Asset } from 'expo-asset'; // Not needed for direct require
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Sentence } from '../types';
+import { Sentence, DictionaryData } from '../types';
 
 // @ts-ignore
 const SENTENCES_FILE = (FileSystem.documentDirectory || '') + 'sentences.json';
+// @ts-ignore
+const ACTIVE_DICT_FILE = (FileSystem.documentDirectory || '') + 'active_dictionary.json';
 
 // Save all sentences to JSON file
 export const saveSentences = async (sentences: Sentence[]): Promise<void> => {
@@ -90,6 +92,24 @@ export const saveActiveNovelId = async (id: string | null) => {
     }
 };
 
+export const loadActiveDictionary = async (): Promise<DictionaryData | null> => {
+    try {
+        const info = await FileSystem.getInfoAsync(ACTIVE_DICT_FILE);
+        console.log(`[storage] Loading active dict from ${ACTIVE_DICT_FILE}, exists: ${info.exists}`);
+        if (!info.exists) return null;
+
+        const content = await FileSystem.readAsStringAsync(ACTIVE_DICT_FILE);
+        console.log(`[storage] Active dict content length: ${content.length}`);
+
+        const parsed = JSON.parse(content);
+        console.log(`[storage] Parsed dict entries count: ${Object.keys(parsed.entries || {}).length}`);
+        return parsed;
+    } catch (error) {
+        console.error('Error loading active dictionary:', error);
+        return null;
+    }
+};
+
 export const loadAllData = async (onProgress?: (progress: number) => void): Promise<{
     sentences: Sentence[];
     bookmarks: number[];
@@ -97,6 +117,7 @@ export const loadAllData = async (onProgress?: (progress: number) => void): Prom
     currentIndex: number;
     settings: any;
     activeNovelId: string | null;
+    dictionaryData: DictionaryData | null;
 }> => {
     // 1. Sentences from File System
     const sentences = await loadSentences(onProgress);
@@ -120,7 +141,10 @@ export const loadAllData = async (onProgress?: (progress: number) => void): Prom
     // 6. Active Novel ID
     const activeNovelId = await AsyncStorage.getItem('activeNovelId');
 
-    return { sentences, bookmarks, readingDict, currentIndex, settings, activeNovelId };
+    // 7. Active Dictionary
+    const dictionaryData = await loadActiveDictionary();
+
+    return { sentences, bookmarks, readingDict, currentIndex, settings, activeNovelId, dictionaryData };
 };
 
 // Backup Functions

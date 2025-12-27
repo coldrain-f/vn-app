@@ -27,6 +27,7 @@ import { SentenceEditModal } from '../components/common/SentenceEditModal';
 import { VolumePopup } from '../components/common/VolumePopup';
 import { AnimatedLogo } from '../components/common/AnimatedLogo';
 import { ActionMenuModal, ActionItem } from '../components/common/ActionMenuModal';
+import { DictionaryModal } from '../components/DictionaryModal';
 import { getKanjiInfo } from '../utils/kanjiData';
 import { generateExplanation, generateReading, verifyReading, generateMeaning } from '../services/claudeApi';
 
@@ -74,6 +75,12 @@ export const ReaderScreen: React.FC = () => {
     const [showStatsModal, setShowStatsModal] = useState(false);
     const [showGenerateMemoConfirm, setShowGenerateMemoConfirm] = useState(false);
     const [showLoadingModal, setShowLoadingModal] = useState(false); // Show loading modal only from memo button
+
+    // Dictionary Modal State
+    const [showDictionaryModal, setShowDictionaryModal] = useState(false);
+    const [selectedWord, setSelectedWord] = useState('');
+
+    const { dictionaryData } = useAppStore(); // Get dictionary data from store
 
     const showToastMessage = useCallback((message: string) => {
         setToastMessage(message);
@@ -125,6 +132,15 @@ export const ReaderScreen: React.FC = () => {
         showToastMessage('수정되었습니다');
     };
 
+    // DEBUG: Force reload data
+    const { loadData } = useAppStore();
+    const handleForceReload = async () => {
+        haptic.medium();
+        showToastMessage('데이터를 다시 불러옵니다...');
+        await loadData();
+        showToastMessage('데이터 로드 완료');
+    };
+
     const handleConfirmAiResult = () => {
         if (!pendingAiResult) return;
 
@@ -150,20 +166,57 @@ export const ReaderScreen: React.FC = () => {
     const [kanjiCandidates, setKanjiCandidates] = useState<string[]>([]);
 
     // Handle kanji touch
-    const handleKanjiPress = useCallback((kanji: string | string[]) => {
-        if (Array.isArray(kanji)) {
-            // Multiple kanji found - show selection menu
-            setKanjiCandidates(kanji);
+    // Handle kanji/word touch
+    const handleKanjiPress = useCallback((text: string | string[]) => {
+        if (Array.isArray(text)) {
+            // Multiple kanji found (from long press) - show selection menu
+            setKanjiCandidates(text);
             setShowKanjiSelection(true);
             haptic.selection();
         } else {
-            // Single kanji
-            const info = getKanjiInfo(kanji);
-            setSelectedKanji(kanji);
-            setSelectedKanjiInfo(info);
-            setShowKanjiModal(true);
+            // Single tap: Check dictionary first, then Kanji info
+            // Check if full word exists in dictionary entry list
+            // dictionaryData.entries is Record<string, Entry[]>;
+            console.log(`[ReaderScreen] Tapped text: "${text}"`);
+            console.log(`[ReaderScreen] DictionaryData present:`, !!dictionaryData);
+            if (dictionaryData && dictionaryData.entries) {
+                console.log(`[ReaderScreen] Entry exists for "${text}":`, !!dictionaryData.entries[text]);
+            }
+
+            const hasEntry = dictionaryData && dictionaryData.entries && !!dictionaryData.entries[text];
+            showToastMessage(`Tap: "${text}" / Found: ${hasEntry ? 'Yes' : 'No'}`);
+
+            if (hasEntry && dictionaryData && dictionaryData.entries) {
+                const entries = dictionaryData.entries[text];
+                if (entries && entries.length > 0) {
+                    setSelectedWord(text);
+                    setShowDictionaryModal(true);
+                    haptic.selection();
+                    return;
+                }
+            }
+
+            /*
+            // Fallback to Kanji Grid if it contains Kanji
+            // We need to filter for actual Kanji range
+            const kanjiChars = text.split('').filter(c => c >= '\u4E00' && c <= '\u9FFF');
+
+            if (kanjiChars.length > 0) {
+                if (kanjiChars.length === 1) {
+                    const info = getKanjiInfo(kanjiChars[0]);
+                    setSelectedKanji(kanjiChars[0]);
+                    setSelectedKanjiInfo(info);
+                    setShowKanjiModal(true);
+                } else {
+                    // If multiple kanji in the word but no dictionary entry, show selection for kanji
+                    setKanjiCandidates(kanjiChars);
+                    setShowKanjiSelection(true);
+                }
+                haptic.selection();
+            }
+            */
         }
-    }, []);
+    }, [dictionaryData]);
 
     const handleRetryAiAction = () => {
         if (!pendingAiResult?.sourceAction) return;
@@ -557,6 +610,8 @@ export const ReaderScreen: React.FC = () => {
                     <TouchableOpacity
                         style={[styles.dataButton, { backgroundColor: `${theme.colors.primary}20` }]}
                         onPress={() => navigation.navigate('Manager', { initialTab: 'settings' })}
+                        onLongPress={handleForceReload}
+                        delayLongPress={1000}
                     >
                         <MaterialCommunityIcons name="cog" size={18} color={theme.colors.primary} />
                     </TouchableOpacity>
@@ -658,6 +713,7 @@ export const ReaderScreen: React.FC = () => {
                                     textStyle={[styles.japaneseText, { color: theme.colors.textLight }]}
                                     furiganaStyle={{ color: theme.colors.primaryDim }}
                                     onKanjiPress={handleKanjiPress}
+                                    tokens={currentSentence.tokens}
                                 />
                             </View>
 
@@ -795,6 +851,12 @@ export const ReaderScreen: React.FC = () => {
             </View>
 
             {/* Modals */}
+            <DictionaryModal
+                visible={showDictionaryModal}
+                onClose={() => setShowDictionaryModal(false)}
+                word={selectedWord}
+                dictionaryData={dictionaryData}
+            />
             <CustomModal
                 visible={showGoToModal}
                 title="이동"

@@ -1,6 +1,6 @@
 // Global state management using Zustand
 import { create } from 'zustand';
-import { Sentence, Settings, ThemeName } from '../types';
+import { Sentence, Settings, ThemeName, DictionaryData } from '../types';
 import * as storage from '../services/storage';
 
 interface AppState {
@@ -8,6 +8,7 @@ interface AppState {
     sentences: Sentence[];
     bookmarks: Set<number>;
     readingDict: Record<string, string>;
+    dictionaryData: DictionaryData | null;
     currentIndex: number;
     settings: Settings;
 
@@ -70,6 +71,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     sentences: [],
     bookmarks: new Set(),
     readingDict: {},
+    dictionaryData: null,
     currentIndex: 0,
     settings: {
         apiKey: '',
@@ -327,6 +329,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                 sentences: data.sentences,
                 bookmarks: new Set(data.bookmarks),
                 readingDict: data.readingDict,
+                dictionaryData: data.dictionaryData,
                 currentIndex: data.currentIndex,
                 settings: data.settings ? { ...get().settings, ...data.settings } : get().settings,
                 activeNovelId: data.activeNovelId,
