@@ -1,7 +1,5 @@
-// Furigana text component for displaying Japanese text with ruby annotations
-// Improved: Groups consecutive non-furigana text for natural line wrapping
-// Added: Kanji long press callback for showing kanji info modal
 import React, { useState } from 'react';
+import { isLoaded } from 'expo-font';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { parseFurigana, FuriganaPart } from '../../utils/furigana';
 import { useAppStore } from '../../store/useAppStore';
