@@ -75,6 +75,7 @@ export const FuriganaText: React.FC<FuriganaTextProps> = ({
                             key={index}
                             parts={parts}
                             lookupTarget={lookupTarget}
+                            hasDictEntry={token.hasDictEntry ?? false}
                             onKanjiPress={onKanjiPress}
                             onPress={onPress}
                             baseStyle={{
@@ -189,16 +190,18 @@ export const FuriganaText: React.FC<FuriganaTextProps> = ({
 const InteractiveToken: React.FC<{
     parts: FuriganaPart[];
     lookupTarget: string;
+    hasDictEntry: boolean;
     onKanjiPress?: (target: string) => void;
     onPress?: (event: any) => void;
     baseStyle: any;
     furiStyle: any;
     showFurigana: boolean;
     accentColor: string;
-}> = ({ parts, lookupTarget, onKanjiPress, onPress, baseStyle, furiStyle, showFurigana, accentColor }) => {
+}> = ({ parts, lookupTarget, hasDictEntry, onKanjiPress, onPress, baseStyle, furiStyle, showFurigana, accentColor }) => {
     const [isPressed, setIsPressed] = useState(false);
 
     const handlePressIn = () => {
+        if (!hasDictEntry) return;
         setIsPressed(true);
         haptic.medium();
     };
@@ -208,20 +211,15 @@ const InteractiveToken: React.FC<{
     };
 
     const handlePress = () => {
-        if (onKanjiPress) {
+        // Only trigger dictionary lookup if hasDictEntry is true
+        if (hasDictEntry && onKanjiPress) {
             onKanjiPress(lookupTarget);
         }
     };
 
-    return (
-        <Pressable
-            onPress={onPress || handlePress}
-            onPressIn={handlePressIn}
-            onPressOut={handlePressOut}
-            delayLongPress={300}
-            style={({ pressed }) => [styles.rubyUnit, { opacity: pressed ? 0.7 : 1 }]}
-        >
-            {/* Render all parts of this token sequentially */}
+    // Render token content
+    const renderContent = () => (
+        <>
             {parts.map((part, idx) => {
                 const furiText = part.reading && showFurigana ? part.reading : ' ';
                 const furiColor = part.reading ? furiStyle.color : 'transparent';
@@ -231,12 +229,34 @@ const InteractiveToken: React.FC<{
                         <Text style={[furiStyle, { color: furiColor }]}>
                             {furiText}
                         </Text>
-                        <Text style={[baseStyle, isPressed && { color: accentColor }]}>
+                        <Text style={[baseStyle, isPressed && hasDictEntry && { color: accentColor }]}>
                             {part.text}
                         </Text>
                     </View>
                 );
             })}
+        </>
+    );
+
+    // If no dict entry, render as non-interactive View
+    if (!hasDictEntry) {
+        return (
+            <View style={styles.rubyUnit}>
+                {renderContent()}
+            </View>
+        );
+    }
+
+    // Interactive pressable for tokens with dict entries
+    return (
+        <Pressable
+            onPress={onPress || handlePress}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+            delayLongPress={300}
+            style={({ pressed }) => [styles.rubyUnit, { opacity: pressed ? 0.7 : 1 }]}
+        >
+            {renderContent()}
         </Pressable>
     );
 };
