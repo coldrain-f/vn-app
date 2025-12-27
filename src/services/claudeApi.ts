@@ -299,3 +299,43 @@ Line 3+: Brief explanation (Korean)
 
     return { isCorrect, correctedReading, details: result };
 };
+
+/**
+ * Generate Korean explanation for Japanese dictionary entry
+ * 일일사전 내용을 한국어로 쉽게 설명
+ */
+export const generateDictExplanation = async (
+    word: string,
+    dictHtml: string,
+    apiKey: string,
+    model: string
+): Promise<string | null> => {
+    // Strip HTML tags for cleaner processing
+    const plainText = dictHtml
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 2000); // Limit to avoid token overflow
+
+    const prompt = `## 사전 정보
+
+단어: ${word}
+사전 내용:
+${plainText}
+
+## 작업
+
+위의 일본어 사전 설명을 한국어로 쉽게 설명해주세요.
+
+## 규칙
+
+1. 일본어 학습자가 이해하기 쉽게 설명
+2. 주요 뜻과 용례를 한국어로 정리
+3. 뉘앙스나 사용 상황을 간략히 설명
+4. 너무 길지 않게 (200자 이내)
+5. 설명만 출력, 다른 텍스트 없이
+
+## 한국어 설명:`;
+
+    return callClaudeAPI(prompt, apiKey, model);
+};

@@ -80,7 +80,7 @@ export const ReaderScreen: React.FC = () => {
     const [showDictionaryModal, setShowDictionaryModal] = useState(false);
     const [selectedWord, setSelectedWord] = useState('');
 
-    const { dictionaryData } = useAppStore(); // Get dictionary data from store
+    const { dictionaryData, activeNovelId } = useAppStore(); // Get dictionary data from store
 
     const showToastMessage = useCallback((message: string) => {
         setToastMessage(message);
@@ -856,6 +856,7 @@ export const ReaderScreen: React.FC = () => {
                 onClose={() => setShowDictionaryModal(false)}
                 word={selectedWord}
                 dictionaryData={dictionaryData}
+                activeNovelId={activeNovelId}
             />
             <CustomModal
                 visible={showGoToModal}

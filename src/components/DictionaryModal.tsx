@@ -16,12 +16,15 @@ import { getTheme } from '../theme';
 import { useAppStore } from '../store/useAppStore';
 import { DictionaryData } from '../types';
 import { haptic } from '../services/haptic';
+import { saveAiExplanation, loadAiExplanation } from '../services/novelStorage';
+import { generateDictExplanation } from '../services/claudeApi';
 
 interface DictionaryModalProps {
     visible: boolean;
     onClose: () => void;
     word: string;
     dictionaryData: DictionaryData | null;
+    activeNovelId?: string | null;
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -31,11 +34,17 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
     onClose,
     word,
     dictionaryData,
+    activeNovelId,
 }) => {
     const { settings } = useAppStore();
     const theme = getTheme(settings.theme);
     const [selectedDictIndex, setSelectedDictIndex] = useState(0);
     const tabScrollViewRef = useRef<ScrollView>(null);
+
+    // AI Explanation state
+    const [aiExplanation, setAiExplanation] = useState<string | null>(null);
+    const [isLoadingAi, setIsLoadingAi] = useState(false);
+    const [showAiTab, setShowAiTab] = useState(false);
 
     // Get entries for the selected word
     const entries = useMemo(() => {
@@ -58,10 +67,13 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
     }, [entries]);
 
     const selectedDictName = uniqueDictionaries[selectedDictIndex] || uniqueDictionaries[0];
+    const isAiTabSelected = showAiTab && selectedDictIndex === uniqueDictionaries.length;
 
     // Reset selection when word changes
     useEffect(() => {
         setSelectedDictIndex(0);
+        setAiExplanation(null);
+        setShowAiTab(false);
     }, [word]);
 
     // Auto-scroll tabs when selectedDictIndex changes
@@ -75,19 +87,21 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
     }, [selectedDictIndex, uniqueDictionaries.length]);
 
     // Swipe gesture to change dictionary tabs
+    const totalTabs = showAiTab ? uniqueDictionaries.length + 1 : uniqueDictionaries.length;
+
     const handleSwipeLeft = useCallback(() => {
-        if (uniqueDictionaries.length > 1 && selectedDictIndex < uniqueDictionaries.length - 1) {
+        if (totalTabs > 1 && selectedDictIndex < totalTabs - 1) {
             setSelectedDictIndex(prev => prev + 1);
             haptic.light();
         }
-    }, [uniqueDictionaries.length, selectedDictIndex]);
+    }, [totalTabs, selectedDictIndex]);
 
     const handleSwipeRight = useCallback(() => {
-        if (uniqueDictionaries.length > 1 && selectedDictIndex > 0) {
+        if (totalTabs > 1 && selectedDictIndex > 0) {
             setSelectedDictIndex(prev => prev - 1);
             haptic.light();
         }
-    }, [uniqueDictionaries.length, selectedDictIndex]);
+    }, [totalTabs, selectedDictIndex]);
 
     const swipeGesture = Gesture.Pan()
         .activeOffsetX([-20, 20])
@@ -98,6 +112,52 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                 handleSwipeRight();
             }
         });
+
+    // Generate AI explanation
+    const handleGenerateAi = useCallback(async () => {
+        if (!activeNovelId || !word) {
+            return;
+        }
+
+        // Check API key and show alert if missing
+        if (!settings.apiKey) {
+            setShowAiTab(true);
+            setSelectedDictIndex(uniqueDictionaries.length);
+            setAiExplanation('API 키가 설정되지 않았습니다. 설정 > API 키에서 설정해주세요.');
+            return;
+        }
+
+        setShowAiTab(true);
+        setSelectedDictIndex(uniqueDictionaries.length); // Select AI tab
+        setIsLoadingAi(true);
+
+        try {
+            // Check cache first
+            const cached = await loadAiExplanation(activeNovelId, word);
+            if (cached) {
+                setAiExplanation(cached);
+                setIsLoadingAi(false);
+                return;
+            }
+
+            // Get all dictionary HTML for context
+            const dictHtml = entries.map(e => e.html).join('\n');
+
+            // Generate new explanation
+            const explanation = await generateDictExplanation(word, dictHtml, settings.apiKey, settings.apiModel);
+            if (explanation) {
+                setAiExplanation(explanation);
+                await saveAiExplanation(activeNovelId, word, explanation);
+            } else {
+                setAiExplanation('AI 해설 생성에 실패했습니다.');
+            }
+        } catch (e) {
+            console.error('AI explanation error:', e);
+            setAiExplanation('오류가 발생했습니다.');
+        } finally {
+            setIsLoadingAi(false);
+        }
+    }, [activeNovelId, word, settings.apiKey, settings.apiModel, entries, uniqueDictionaries.length]);
 
     // Generate HTML for the current dictionary
     const currentHtml = useMemo(() => {
@@ -224,13 +284,28 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                         <Text style={[styles.title, { color: '#1e293b' }]}>
                             {word}
                         </Text>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                            <MaterialCommunityIcons name="close" size={24} color="#64748b" />
-                        </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            {entries.length > 0 && (
+                                <TouchableOpacity
+                                    onPress={handleGenerateAi}
+                                    style={[styles.aiButton, { marginRight: 8 }]}
+                                    disabled={isLoadingAi}
+                                >
+                                    <MaterialCommunityIcons
+                                        name="robot-outline"
+                                        size={20}
+                                        color={isLoadingAi ? '#94a3b8' : '#0284C7'}
+                                    />
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                                <MaterialCommunityIcons name="close" size={24} color="#64748b" />
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                     {/* Dictionary Tabs */}
-                    {uniqueDictionaries.length > 1 && (
+                    {(uniqueDictionaries.length > 1 || showAiTab) && (
                         <View style={[styles.tabsContainer, { borderBottomColor: '#E2E8F0' }]}>
                             <ScrollView
                                 ref={tabScrollViewRef}
@@ -242,7 +317,7 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                                         key={index}
                                         style={[
                                             styles.tab,
-                                            selectedDictIndex === index && {
+                                            selectedDictIndex === index && !isAiTabSelected && {
                                                 borderBottomColor: '#0284C7',
                                                 borderBottomWidth: 2
                                             }
@@ -254,12 +329,37 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                                     >
                                         <Text style={[
                                             styles.tabText,
-                                            { color: selectedDictIndex === index ? '#0284C7' : '#64748b' }
+                                            { color: selectedDictIndex === index && !isAiTabSelected ? '#0284C7' : '#64748b' }
                                         ]}>
                                             {dictName}
                                         </Text>
                                     </TouchableOpacity>
                                 ))}
+                                {showAiTab && (
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.tab,
+                                            isAiTabSelected && {
+                                                borderBottomColor: '#10B981',
+                                                borderBottomWidth: 2
+                                            }
+                                        ]}
+                                        onPress={() => {
+                                            setSelectedDictIndex(uniqueDictionaries.length);
+                                            haptic.light();
+                                        }}
+                                    >
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <MaterialCommunityIcons name="robot-outline" size={14} color={isAiTabSelected ? '#10B981' : '#64748b'} />
+                                            <Text style={[
+                                                styles.tabText,
+                                                { color: isAiTabSelected ? '#10B981' : '#64748b', marginLeft: 4 }
+                                            ]}>
+                                                AI 해설
+                                            </Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                )}
                             </ScrollView>
                         </View>
                     )}
@@ -267,7 +367,26 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                     {/* Content - Swipeable */}
                     <GestureDetector gesture={swipeGesture}>
                         <View style={styles.contentContainer}>
-                            {entries.length > 0 ? (
+                            {isAiTabSelected ? (
+                                // AI Explanation content
+                                <View style={styles.aiContentContainer}>
+                                    {isLoadingAi ? (
+                                        <View style={styles.loadingContainer}>
+                                            <ActivityIndicator size="large" color="#10B981" />
+                                            <Text style={styles.loadingText}>AI 해설 생성 중...</Text>
+                                        </View>
+                                    ) : aiExplanation ? (
+                                        <ScrollView style={{ flex: 1, padding: 16 }}>
+                                            <Text style={styles.aiExplanationText}>{aiExplanation}</Text>
+                                        </ScrollView>
+                                    ) : (
+                                        <View style={styles.emptyContainer}>
+                                            <MaterialCommunityIcons name="robot-confused-outline" size={48} color="#CBD5E1" />
+                                            <Text style={styles.emptyText}>AI 해설을 생성할 수 없습니다</Text>
+                                        </View>
+                                    )}
+                                </View>
+                            ) : entries.length > 0 ? (
                                 <>
                                     <WebView
                                         originWhitelist={['*']}
@@ -384,6 +503,21 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#64748b',
         marginTop: 12,
+        fontFamily: 'Pretendard-Regular',
+    },
+    aiButton: {
+        padding: 8,
+        backgroundColor: '#E0F2FE',
+        borderRadius: 8,
+    },
+    aiContentContainer: {
+        flex: 1,
+        backgroundColor: '#F8FAFC',
+    },
+    aiExplanationText: {
+        fontSize: 16,
+        lineHeight: 26,
+        color: '#1e293b',
         fontFamily: 'Pretendard-Regular',
     },
 });

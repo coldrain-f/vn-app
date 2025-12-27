@@ -43,6 +43,52 @@ export const saveNovelList = async (novels: Novel[]): Promise<void> => {
     }
 };
 
+// Update novel title
+export const updateNovelTitle = async (novelId: string, newTitle: string): Promise<void> => {
+    try {
+        const novels = await loadNovelList();
+        const index = novels.findIndex(n => n.id === novelId);
+        if (index >= 0) {
+            novels[index].title = newTitle;
+            await saveNovelList(novels);
+        }
+    } catch (error) {
+        console.error(`Failed to update novel title for ${novelId}:`, error);
+        throw error;
+    }
+};
+
+// AI Explanation Cache
+export const saveAiExplanation = async (novelId: string, word: string, explanation: string): Promise<void> => {
+    const path = NOVELS_DIR + novelId + '/ai_explanations.json';
+    try {
+        let cache: Record<string, string> = {};
+        const info = await FileSystem.getInfoAsync(path);
+        if (info.exists) {
+            const content = await FileSystem.readAsStringAsync(path);
+            cache = JSON.parse(content);
+        }
+        cache[word] = explanation;
+        await FileSystem.writeAsStringAsync(path, JSON.stringify(cache));
+    } catch (error) {
+        console.error(`Failed to save AI explanation for ${word}:`, error);
+    }
+};
+
+export const loadAiExplanation = async (novelId: string, word: string): Promise<string | null> => {
+    const path = NOVELS_DIR + novelId + '/ai_explanations.json';
+    try {
+        const info = await FileSystem.getInfoAsync(path);
+        if (!info.exists) return null;
+        const content = await FileSystem.readAsStringAsync(path);
+        const cache = JSON.parse(content);
+        return cache[word] || null;
+    } catch (error) {
+        console.error(`Failed to load AI explanation for ${word}:`, error);
+        return null;
+    }
+};
+
 // Save a new novel (sentences and dict)
 export const saveNovelData = async (
     novel: Novel,

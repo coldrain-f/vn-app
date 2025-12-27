@@ -31,7 +31,7 @@ import { FuriganaText } from '../components/common/FuriganaText';
 import { ActivityIndicator, Dimensions } from 'react-native';
 import { voiceDownloadManager, DownloadProgress } from '../services/voiceDownloadManager';
 import { BgmSelectionModal, getTrackName } from '../components/common/BgmSelectionModal';
-import { activateNovel, deleteNovel, loadNovelList, resetNovelStorage, saveNovelProgress, loadNovelProgress } from '../services/novelStorage';
+import { activateNovel, deleteNovel, loadNovelList, resetNovelStorage, saveNovelProgress, loadNovelProgress, updateNovelTitle } from '../services/novelStorage';
 import { resetAppData } from '../services/storage';
 import { ImportService } from '../services/importService';
 import { Novel } from '../types';
@@ -86,6 +86,30 @@ export const ManagerScreen: React.FC = () => {
     const [isImporting, setIsImporting] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
     const [importProgress, setImportProgress] = useState({ percent: 0, message: '' });
+
+    // Edit Novel Title State
+    const [editNovelModal, setEditNovelModal] = useState<{ visible: boolean; novel: Novel | null; newTitle: string }>({
+        visible: false,
+        novel: null,
+        newTitle: ''
+    });
+
+    const handleEditNovelTitle = (novel: Novel) => {
+        setEditNovelModal({ visible: true, novel, newTitle: novel.title });
+    };
+
+    const handleSaveNovelTitle = async () => {
+        if (!editNovelModal.novel || !editNovelModal.newTitle.trim()) return;
+        try {
+            await updateNovelTitle(editNovelModal.novel.id, editNovelModal.newTitle.trim());
+            await refreshNovelList();
+            setEditNovelModal({ visible: false, novel: null, newTitle: '' });
+            showToastMessage('타이틀이 변경되었습니다');
+        } catch (e) {
+            console.error(e);
+            showToastMessage('타이틀 변경 실패');
+        }
+    };
 
     const refreshNovelList = useCallback(async () => {
         setRefreshingNovels(true);
@@ -1145,6 +1169,18 @@ export const ManagerScreen: React.FC = () => {
                                     }}>
                                         {isActive ? '사용 중' : '열기'}
                                     </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => handleEditNovelTitle(item)}
+                                    style={{
+                                        flex: 1,
+                                        paddingVertical: 12,
+                                        alignItems: 'center',
+                                        borderRightWidth: 1,
+                                        borderRightColor: `${theme.colors.border}40`,
+                                    }}
+                                >
+                                    <Text style={{ color: theme.colors.info, fontFamily: 'Pretendard-Medium' }}>수정</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     onPress={() => handleDeleteNovel(item)}
@@ -2666,6 +2702,65 @@ export const ManagerScreen: React.FC = () => {
                         </Text>
 
 
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Edit Novel Title Modal */}
+            <Modal
+                transparent={true}
+                visible={editNovelModal.visible}
+                animationType="fade"
+                onRequestClose={() => setEditNovelModal({ visible: false, novel: null, newTitle: '' })}
+            >
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+                    <View style={{ backgroundColor: theme.colors.panel, padding: 24, borderRadius: 16, width: '85%', maxWidth: 360 }}>
+                        <Text style={{ color: theme.colors.text, fontSize: 18, fontFamily: 'Pretendard-Bold', marginBottom: 16 }}>
+                            타이틀 수정
+                        </Text>
+                        <TextInput
+                            style={{
+                                borderWidth: 1,
+                                borderColor: theme.colors.border,
+                                borderRadius: 8,
+                                padding: 12,
+                                color: theme.colors.text,
+                                fontSize: 16,
+                                fontFamily: 'Pretendard-Medium',
+                                backgroundColor: theme.colors.background
+                            }}
+                            value={editNovelModal.newTitle}
+                            onChangeText={(text) => setEditNovelModal(prev => ({ ...prev, newTitle: text }))}
+                            placeholder="새 타이틀 입력"
+                            placeholderTextColor={theme.colors.textDim}
+                            autoFocus
+                        />
+                        <View style={{ flexDirection: 'row', marginTop: 20, gap: 12 }}>
+                            <TouchableOpacity
+                                style={{
+                                    flex: 1,
+                                    paddingVertical: 12,
+                                    borderRadius: 8,
+                                    backgroundColor: `${theme.colors.border}50`,
+                                    alignItems: 'center'
+                                }}
+                                onPress={() => setEditNovelModal({ visible: false, novel: null, newTitle: '' })}
+                            >
+                                <Text style={{ color: theme.colors.text, fontFamily: 'Pretendard-Medium' }}>취소</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={{
+                                    flex: 1,
+                                    paddingVertical: 12,
+                                    borderRadius: 8,
+                                    backgroundColor: theme.colors.primary,
+                                    alignItems: 'center'
+                                }}
+                                onPress={handleSaveNovelTitle}
+                            >
+                                <Text style={{ color: theme.colors.dark, fontFamily: 'Pretendard-Bold' }}>저장</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
             </Modal>
