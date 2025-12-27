@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
     View,
     Text,
@@ -10,10 +10,12 @@ import {
     ScrollView,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getTheme } from '../theme';
 import { useAppStore } from '../store/useAppStore';
 import { DictionaryData } from '../types';
+import { haptic } from '../services/haptic';
 
 interface DictionaryModalProps {
     visible: boolean;
@@ -33,6 +35,7 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
     const { settings } = useAppStore();
     const theme = getTheme(settings.theme);
     const [selectedDictIndex, setSelectedDictIndex] = useState(0);
+    const tabScrollViewRef = useRef<ScrollView>(null);
 
     // Get entries for the selected word
     const entries = useMemo(() => {
@@ -60,6 +63,41 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
     useEffect(() => {
         setSelectedDictIndex(0);
     }, [word]);
+
+    // Auto-scroll tabs when selectedDictIndex changes
+    useEffect(() => {
+        if (tabScrollViewRef.current && uniqueDictionaries.length > 1) {
+            // Approximate tab width (minWidth 80 + padding)
+            const tabWidth = 100;
+            const scrollX = selectedDictIndex * tabWidth - tabWidth;
+            tabScrollViewRef.current.scrollTo({ x: Math.max(0, scrollX), animated: true });
+        }
+    }, [selectedDictIndex, uniqueDictionaries.length]);
+
+    // Swipe gesture to change dictionary tabs
+    const handleSwipeLeft = useCallback(() => {
+        if (uniqueDictionaries.length > 1 && selectedDictIndex < uniqueDictionaries.length - 1) {
+            setSelectedDictIndex(prev => prev + 1);
+            haptic.selection();
+        }
+    }, [uniqueDictionaries.length, selectedDictIndex]);
+
+    const handleSwipeRight = useCallback(() => {
+        if (uniqueDictionaries.length > 1 && selectedDictIndex > 0) {
+            setSelectedDictIndex(prev => prev - 1);
+            haptic.selection();
+        }
+    }, [uniqueDictionaries.length, selectedDictIndex]);
+
+    const swipeGesture = Gesture.Pan()
+        .activeOffsetX([-20, 20])
+        .onEnd((event) => {
+            if (event.translationX < -50) {
+                handleSwipeLeft();
+            } else if (event.translationX > 50) {
+                handleSwipeRight();
+            }
+        });
 
     // Generate HTML for the current dictionary
     const currentHtml = useMemo(() => {
@@ -194,7 +232,11 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                     {/* Dictionary Tabs */}
                     {uniqueDictionaries.length > 1 && (
                         <View style={[styles.tabsContainer, { borderBottomColor: '#E2E8F0' }]}>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                            <ScrollView
+                                ref={tabScrollViewRef}
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                            >
                                 {uniqueDictionaries.map((dictName, index) => (
                                     <TouchableOpacity
                                         key={index}
@@ -219,32 +261,34 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                         </View>
                     )}
 
-                    {/* Content */}
-                    <View style={styles.contentContainer}>
-                        {entries.length > 0 ? (
-                            <>
-                                <WebView
-                                    originWhitelist={['*']}
-                                    source={{ html: currentHtml || '' }}
-                                    style={{ backgroundColor: '#FFFFFF', flex: 1 }}
-                                    showsVerticalScrollIndicator={true}
-                                    startInLoadingState={true}
-                                    renderLoading={() => (
-                                        <View style={styles.loadingContainer}>
-                                            <ActivityIndicator size="large" color="#0284C7" />
-                                            <Text style={styles.loadingText}>로딩 중...</Text>
-                                        </View>
-                                    )}
-                                />
-                            </>
-                        ) : (
-                            <View style={styles.emptyContainer}>
-                                <MaterialCommunityIcons name="book-open-variant" size={48} color="#CBD5E1" />
-                                <Text style={styles.emptyTitle}>「{word}」</Text>
-                                <Text style={styles.emptyText}>사전에서 찾을 수 없습니다</Text>
-                            </View>
-                        )}
-                    </View>
+                    {/* Content - Swipeable */}
+                    <GestureDetector gesture={swipeGesture}>
+                        <View style={styles.contentContainer}>
+                            {entries.length > 0 ? (
+                                <>
+                                    <WebView
+                                        originWhitelist={['*']}
+                                        source={{ html: currentHtml || '' }}
+                                        style={{ backgroundColor: '#FFFFFF', flex: 1 }}
+                                        showsVerticalScrollIndicator={true}
+                                        startInLoadingState={true}
+                                        renderLoading={() => (
+                                            <View style={styles.loadingContainer}>
+                                                <ActivityIndicator size="large" color="#0284C7" />
+                                                <Text style={styles.loadingText}>로딩 중...</Text>
+                                            </View>
+                                        )}
+                                    />
+                                </>
+                            ) : (
+                                <View style={styles.emptyContainer}>
+                                    <MaterialCommunityIcons name="book-open-variant" size={48} color="#CBD5E1" />
+                                    <Text style={styles.emptyTitle}>「{word}」</Text>
+                                    <Text style={styles.emptyText}>사전에서 찾을 수 없습니다</Text>
+                                </View>
+                            )}
+                        </View>
+                    </GestureDetector>
                 </View>
             </View>
         </Modal>
