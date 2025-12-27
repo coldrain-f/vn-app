@@ -170,7 +170,7 @@ export const ManagerScreen: React.FC = () => {
     };
 
     // UI State
-    const [activeTab, setActiveTab] = useState<TabName>('list');
+    const [activeTab, setActiveTab] = useState<TabName>('novels');
 
     const selectedSentences = useMemo(() => {
         return activeTab === 'bookmarks' ? selectedBookmarkItems : selectedListItems;
