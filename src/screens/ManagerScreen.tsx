@@ -79,6 +79,11 @@ export const ManagerScreen: React.FC = () => {
     const [novels, setNovels] = useState<Novel[]>([]);
     const [refreshingNovels, setRefreshingNovels] = useState(false);
 
+    // Import State
+    const [isImporting, setIsImporting] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [importProgress, setImportProgress] = useState({ percent: 0, message: '' });
+
     const refreshNovelList = useCallback(async () => {
         setRefreshingNovels(true);
         const list = await loadNovelList();
@@ -93,9 +98,14 @@ export const ManagerScreen: React.FC = () => {
 
 
     const handleImportNovel = async () => {
+        if (isImporting) return;
+        setIsImporting(true);
+        // Don't show modal immediately - wait for file selection
+
         try {
             const success = await ImportService.pickAndImportNovel((p, m) => {
-                if (p % 20 === 0) showToastMessage(`${m} (${Math.round(p)}%)`);
+                setShowImportModal(true);
+                setImportProgress({ percent: p, message: m });
             });
             if (success) {
                 await refreshNovelList();
@@ -104,6 +114,12 @@ export const ManagerScreen: React.FC = () => {
         } catch (e) {
             console.error(e);
             showToastMessage('가져오기 실패: ' + (e as any).message);
+        } finally {
+            // Delay closing slightly to show 100%
+            setTimeout(() => {
+                setIsImporting(false);
+                setShowImportModal(false);
+            }, 500);
         }
     };
 
@@ -970,9 +986,11 @@ export const ManagerScreen: React.FC = () => {
                         paddingVertical: 8,
                         paddingHorizontal: 16,
                         borderRadius: 8,
-                        alignItems: 'center'
+                        alignItems: 'center',
+                        opacity: isImporting ? 0.5 : 1
                     }}
                     onPress={handleImportNovel}
+                    disabled={isImporting}
                 >
                     <MaterialCommunityIcons name="import" size={18} color={theme.colors.dark} />
                     <Text style={{ color: theme.colors.dark, marginLeft: 6, fontWeight: 'bold' }}>소설 가져오기 (.vnpack)</Text>
@@ -2549,6 +2567,31 @@ export const ManagerScreen: React.FC = () => {
                 }}
                 currentTrack={settings.bgmTrack}
             />
+
+            {/* Import Progress Modal */}
+            <Modal
+                transparent={true}
+                visible={showImportModal}
+                animationType="fade"
+                onRequestClose={() => { }}
+            >
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+                    <View style={{ backgroundColor: theme.colors.panel, padding: 24, borderRadius: 16, width: '80%', maxWidth: 320, alignItems: 'center', elevation: 5 }}>
+                        <ActivityIndicator size="large" color={theme.colors.primary} />
+                        <Text style={{ marginTop: 16, color: theme.colors.text, fontSize: 16, fontFamily: 'Pretendard-Bold', textAlign: 'center' }}>
+                            {importProgress.message || '가져오는 중...'}
+                        </Text>
+                        <View style={{ width: '100%', height: 6, backgroundColor: `${theme.colors.primary}20`, borderRadius: 3, marginTop: 16, overflow: 'hidden' }}>
+                            <View style={{ width: `${importProgress.percent}%`, height: '100%', backgroundColor: theme.colors.primary }} />
+                        </View>
+                        <Text style={{ marginTop: 8, color: theme.colors.textDim, fontSize: 12 }}>
+                            {Math.round(importProgress.percent)}%
+                        </Text>
+
+
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 };

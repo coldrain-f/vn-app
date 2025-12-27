@@ -4,6 +4,8 @@ import JSZip from 'jszip';
 import { saveNovelData } from './novelStorage';
 import { Novel, Sentence, DictionaryData } from '../types';
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export class ImportService {
 
     /**
@@ -12,7 +14,8 @@ export class ImportService {
      * @returns Promise<boolean> true if imported, false if cancelled
      */
     static async pickAndImportNovel(
-        onProgress?: (progress: number, message: string) => void
+        onProgress?: (progress: number, message: string) => void,
+        checkCancelled?: () => boolean
     ): Promise<boolean> {
         try {
             // 1. Pick File
@@ -25,6 +28,8 @@ export class ImportService {
                 return false;
             }
 
+            if (checkCancelled?.()) throw new Error('Import cancelled by user');
+
             const file = result.assets[0];
             const uri = file.uri;
 
@@ -35,14 +40,19 @@ export class ImportService {
 
             if (onProgress) onProgress(10, 'Reading file...');
 
+            await delay(100);
+            if (checkCancelled?.()) throw new Error('Import cancelled by user');
+
             // 2. Read File (as Base64 for JSZip)
-            // Note: For very large files, this might crash due to memory strings.
-            // But for typical novels (5-20MB), it should be fine.
             const base64 = await FileSystem.readAsStringAsync(uri, {
                 encoding: FileSystem.EncodingType.Base64
             });
 
+            await delay(100);
+            if (checkCancelled?.()) throw new Error('Import cancelled by user');
+
             if (onProgress) onProgress(30, 'Unzipping...');
+            await delay(100);
 
             // 3. Unzip
             const zip = await JSZip.loadAsync(base64, { base64: true });
@@ -54,23 +64,45 @@ export class ImportService {
 
             if (onProgress) onProgress(50, 'Parsing data...');
 
+            await delay(100);
+            if (checkCancelled?.()) throw new Error('Import cancelled by user');
+
             // 4. Parse JSON
             const sentencesText = await zip.file('sentences.json')!.async('string');
             const dictionaryText = await zip.file('dictionary.json')!.async('string');
 
-            const sentencesData = JSON.parse(sentencesText);
+            await delay(100);
+            if (checkCancelled?.()) throw new Error('Import cancelled by user');
+
+            const sentencesJson = JSON.parse(sentencesText);
             const dictionaryData = JSON.parse(dictionaryText) as DictionaryData;
 
-            // Extract Metadata
-            // VN-Forge format: { novelId, novelName, sentences: [...] }
-            const novelId = sentencesData.novelId ? String(sentencesData.novelId) : file.name.replace(/\.(vnpack|zip)$/i, '');
-            const novelTitle = sentencesData.novelName || file.name.replace(/\.(vnpack|zip)$/i, '');
+            let sentences: Sentence[] = [];
+            let novelId = '';
+            let novelTitle = '';
 
-            if (!Array.isArray(sentencesData.sentences)) {
-                throw new Error('Invalid sentences.json: "sentences" array missing.');
+            if (Array.isArray(sentencesJson)) {
+                // Direct array format (VN-Forge export)
+                sentences = sentencesJson as Sentence[];
+                // Use filename as title/id since metadata is not in JSON
+                // Clean filename: remove extension
+                const nameBase = file.name.replace(/\.(vnpack|zip)$/i, '');
+                novelTitle = nameBase;
+                // Generate a simpler ID: remove special chars, add timestamp for uniqueness
+                // Clean spaces and special chars for ID
+                const safeName = nameBase.replace(/[^a-zA-Z0-9_\-\u00C0-\u00FF\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\uAC00-\uD7AF]/g, '_');
+                novelId = safeName + '_' + Date.now().toString().slice(-6);
+            } else if (sentencesJson.sentences && Array.isArray(sentencesJson.sentences)) {
+                // Wrapped format
+                sentences = sentencesJson.sentences as Sentence[];
+                novelId = sentencesJson.novelId ? String(sentencesJson.novelId) : file.name.replace(/\.(vnpack|zip)$/i, '');
+                novelTitle = sentencesJson.novelName || file.name.replace(/\.(vnpack|zip)$/i, '');
+            } else {
+                throw new Error('Invalid sentences.json: Root must be array or object with "sentences".');
             }
 
-            const sentences = sentencesData.sentences as Sentence[];
+            // Fix empty ids
+            sentences = sentences.map((s, idx) => ({ ...s, id: s.id || idx }));
 
             const novel: Novel = {
                 id: novelId,
@@ -80,6 +112,9 @@ export class ImportService {
             };
 
             if (onProgress) onProgress(80, 'Saving to storage...');
+
+            await delay(100);
+            if (checkCancelled?.()) throw new Error('Import cancelled by user');
 
             // 5. Save using NovelStorage
             await saveNovelData(novel, sentences, dictionaryData);
