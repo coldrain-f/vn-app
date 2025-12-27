@@ -82,7 +82,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         hapticEnabled: true,
         theme: 'steinsgate',
         showFurigana: true,
-        showTranslation: false,
+        showTranslation: true,
         password: '',
     },
     isLoading: true,
