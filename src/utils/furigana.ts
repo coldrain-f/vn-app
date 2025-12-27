@@ -26,7 +26,11 @@ export const parseFurigana = (reading: string): FuriganaPart[] => {
 
     // Match: one or more kanji followed by [furigana]
     // This regex matches ONLY kanji characters before the brackets
-    const furiganaPattern = /([\u4E00-\u9FFF\u3400-\u4DBF々]+)\[([^\]]+)\]/g;
+    // Match: one or more kanji/kana followed by [furigana] or 【furigana】
+    // HEURISTIC: The match MUST start with a Kanji to prevent greedy matching of preceding Kana.
+    // e.g. 黙れ[だまれ] (Starts with Kanji) -> Match '黙れ'
+    // e.g. ような声[こえ] (Starts with Kana) -> Match only '声'
+    const furiganaPattern = /([\u4E00-\u9FFF\u3400-\u4DBF々][\u4E00-\u9FFF\u3400-\u4DBF々\u3040-\u309F\u30A0-\u30FF]*)([\[【])([^\]】]+)([\]】])/g;
 
     let lastIndex = 0;
     let match;
@@ -43,7 +47,7 @@ export const parseFurigana = (reading: string): FuriganaPart[] => {
         // Add the kanji with its furigana reading
         parts.push({
             text: match[1],      // Kanji characters
-            reading: match[2],   // Furigana reading
+            reading: match[3],   // Furigana reading (group 3 inside brackets)
         });
 
         lastIndex = match.index + match[0].length;
@@ -65,7 +69,7 @@ export const parseFurigana = (reading: string): FuriganaPart[] => {
  * 食[た]べる -> 食べる
  */
 export const stripFurigana = (reading: string): string => {
-    return reading.replace(/\[([^\[\]]+)\]/g, '');
+    return reading.replace(/([\[【])([^\]】]+)([\]】])/g, '');
 };
 
 /**

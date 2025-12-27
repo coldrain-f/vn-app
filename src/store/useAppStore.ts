@@ -81,7 +81,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         voiceAutoplay: true,
         hapticEnabled: true,
         theme: 'steinsgate',
-        showFurigana: false,
+        showFurigana: true,
         showTranslation: false,
         password: '',
     },

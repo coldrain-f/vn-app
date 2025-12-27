@@ -74,7 +74,9 @@ export const FuriganaText: React.FC<FuriganaTextProps> = ({
                         fontSize: fontSize,
                         lineHeight: baseLineHeight,
                         color: theme.colors.textLight,
-                        fontFamily: 'YuMincho',
+                        fontFamily: 'Pretendard-Medium',
+                        includeFontPadding: false, // Fix vertical alignment on Android
+                        textAlignVertical: 'center',
                     },
                     textStyle,
                 ];
@@ -90,10 +92,12 @@ export const FuriganaText: React.FC<FuriganaTextProps> = ({
                                 styles.furigana,
                                 {
                                     fontSize: furiSize,
-                                    lineHeight: furiSize + 2,
+                                    lineHeight: furiSize, // Tighten line height to exact size
                                     color: furiColor,
-                                    fontFamily: 'YuMincho',
-                                    marginBottom: -2 // Pull closer to text
+                                    fontFamily: 'Pretendard-Medium',
+                                    marginBottom: 0, // Remove negative margin
+                                    includeFontPadding: false, // Fix vertical alignment on Android
+                                    textAlignVertical: 'center',
                                 },
                                 furiganaStyle,
                             ]}
@@ -175,7 +179,7 @@ const styles = StyleSheet.create({
     rubyUnit: {
         alignItems: 'center',
         justifyContent: 'flex-end',
-        marginVertical: -2, // Reduce vertical gap between wrapped lines
+        marginVertical: 0,
     },
     furigana: {
         textAlign: 'center',
