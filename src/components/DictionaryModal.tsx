@@ -166,14 +166,14 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
         // Merge HTMLs
         const mergedHtml = targetEntries.map(e => e.html).join('<hr class="entry-divider" style="margin: 20px 0; border: 0; border-top: 1px dashed #ccc;" />');
 
-        // AI Explanation section (if available or loading)
+        // AI Explanation section (if available or loading) - collapsible
         let aiSectionHtml = '';
         if (isLoadingAi) {
             aiSectionHtml = `
-                <div class="ai-explanation loading">
-                    <div class="ai-header">🤖 AI 해설</div>
+                <details class="ai-explanation loading" open>
+                    <summary class="ai-header">🤖 AI 해설</summary>
                     <div class="ai-loading">생성 중...</div>
-                </div>
+                </details>
             `;
         } else if (aiExplanation) {
             // Escape HTML and convert newlines to <br>
@@ -183,10 +183,10 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                 .replace(/>/g, '&gt;')
                 .replace(/\n/g, '<br>');
             aiSectionHtml = `
-                <div class="ai-explanation">
-                    <div class="ai-header">🤖 AI 해설</div>
+                <details class="ai-explanation" open>
+                    <summary class="ai-header">🤖 AI 해설 <span class="toggle-hint">(탭하여 접기/펼치기)</span></summary>
                     <div class="ai-content">${escapedExplanation}</div>
-                </div>
+                </details>
             `;
         }
 
@@ -214,23 +214,41 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                         line-height: 1.6;
                     }
                     
-                    /* AI Explanation Styles */
+                    /* AI Explanation Styles - Collapsible */
                     .ai-explanation {
-                        background: linear-gradient(135deg, #E0F2FE 0%, #F0FDF4 100%);
-                        border: 1px solid #0284C7;
-                        border-radius: 12px;
+                        background: #FFFFFF;
+                        border: 1px solid #E2E8F0;
+                        border-left: 3px solid #0284C7;
+                        border-radius: 4px;
                         padding: 12px 16px;
                         margin-bottom: 16px;
                     }
                     .ai-explanation.loading {
-                        background: #F1F5F9;
-                        border-color: #94A3B8;
+                        border-left-color: #94A3B8;
                     }
                     .ai-header {
                         font-weight: 600;
                         color: #0369A1;
                         font-size: 14px;
+                        cursor: pointer;
+                        list-style: none;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                    }
+                    .ai-header::-webkit-details-marker {
+                        display: none;
+                    }
+                    .toggle-hint {
+                        font-size: 11px;
+                        color: #64748b;
+                        font-weight: 400;
+                    }
+                    .ai-explanation[open] .ai-header {
                         margin-bottom: 8px;
+                    }
+                    .ai-explanation:not([open]) {
+                        padding-bottom: 12px;
                     }
                     .ai-loading {
                         color: #64748b;
