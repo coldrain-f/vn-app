@@ -115,7 +115,7 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
 
     // Generate AI explanation
     const handleGenerateAi = useCallback(async () => {
-        if (!activeNovelId || !word) {
+        if (!activeNovelId || !word || !selectedDictName) {
             return;
         }
 
@@ -132,22 +132,23 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
         setIsLoadingAi(true);
 
         try {
-            // Check cache first
-            const cached = await loadAiExplanation(activeNovelId, word);
+            // Check cache first (per dictionary)
+            const cached = await loadAiExplanation(activeNovelId, word, selectedDictName);
             if (cached) {
                 setAiExplanation(cached);
                 setIsLoadingAi(false);
                 return;
             }
 
-            // Get all dictionary HTML for context
-            const dictHtml = entries.map(e => e.html).join('\n');
+            // Get only the selected dictionary's HTML
+            const selectedEntries = entries.filter(e => e.dictionary === selectedDictName);
+            const dictHtml = selectedEntries.map(e => e.html).join('\n');
 
             // Generate new explanation
             const explanation = await generateDictExplanation(word, dictHtml, settings.apiKey, settings.apiModel);
             if (explanation) {
                 setAiExplanation(explanation);
-                await saveAiExplanation(activeNovelId, word, explanation);
+                await saveAiExplanation(activeNovelId, word, selectedDictName, explanation);
             } else {
                 setAiExplanation('AI 해설 생성에 실패했습니다.');
             }
@@ -157,7 +158,7 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
         } finally {
             setIsLoadingAi(false);
         }
-    }, [activeNovelId, word, settings.apiKey, settings.apiModel, entries, uniqueDictionaries.length]);
+    }, [activeNovelId, word, selectedDictName, settings.apiKey, settings.apiModel, entries, uniqueDictionaries.length]);
 
     // Generate HTML for the current dictionary
     const currentHtml = useMemo(() => {

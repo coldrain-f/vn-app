@@ -58,9 +58,10 @@ export const updateNovelTitle = async (novelId: string, newTitle: string): Promi
     }
 };
 
-// AI Explanation Cache
-export const saveAiExplanation = async (novelId: string, word: string, explanation: string): Promise<void> => {
+// AI Explanation Cache (per dictionary)
+export const saveAiExplanation = async (novelId: string, word: string, dictName: string, explanation: string): Promise<void> => {
     const path = NOVELS_DIR + novelId + '/ai_explanations.json';
+    const cacheKey = `${word}_${dictName}`;
     try {
         let cache: Record<string, string> = {};
         const info = await FileSystem.getInfoAsync(path);
@@ -68,23 +69,24 @@ export const saveAiExplanation = async (novelId: string, word: string, explanati
             const content = await FileSystem.readAsStringAsync(path);
             cache = JSON.parse(content);
         }
-        cache[word] = explanation;
+        cache[cacheKey] = explanation;
         await FileSystem.writeAsStringAsync(path, JSON.stringify(cache));
     } catch (error) {
-        console.error(`Failed to save AI explanation for ${word}:`, error);
+        console.error(`Failed to save AI explanation for ${word} (${dictName}):`, error);
     }
 };
 
-export const loadAiExplanation = async (novelId: string, word: string): Promise<string | null> => {
+export const loadAiExplanation = async (novelId: string, word: string, dictName: string): Promise<string | null> => {
     const path = NOVELS_DIR + novelId + '/ai_explanations.json';
+    const cacheKey = `${word}_${dictName}`;
     try {
         const info = await FileSystem.getInfoAsync(path);
         if (!info.exists) return null;
         const content = await FileSystem.readAsStringAsync(path);
         const cache = JSON.parse(content);
-        return cache[word] || null;
+        return cache[cacheKey] || null;
     } catch (error) {
-        console.error(`Failed to load AI explanation for ${word}:`, error);
+        console.error(`Failed to load AI explanation for ${word} (${dictName}):`, error);
         return null;
     }
 };

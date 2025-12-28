@@ -302,7 +302,7 @@ Line 3+: Brief explanation (Korean)
 
 /**
  * Generate Korean explanation for Japanese dictionary entry
- * 일일사전 내용을 한국어로 쉽게 설명
+ * 일일사전 설명에 사용된 어려운 단어들을 한국어로 풀이
  */
 export const generateDictExplanation = async (
     word: string,
@@ -323,19 +323,20 @@ export const generateDictExplanation = async (
 사전 내용:
 ${plainText}
 
-## 작업
+## 목적
 
-위의 일본어 사전 설명을 한국어로 쉽게 설명해주세요.
+일본어 학습자가 일일사전을 읽다가 모르는 단어가 있을 때 이해를 돕기 위함
 
 ## 규칙
 
-1. 일본어 학습자가 이해하기 쉽게 설명
-2. 주요 뜻과 용례를 한국어로 정리
-3. 뉘앙스나 사용 상황을 간략히 설명
-4. 너무 길지 않게 (200자 이내)
-5. 설명만 출력, 다른 텍스트 없이
+1. 사전 설명에 사용된 어려운 단어나 표현을 찾아 한국어로 풀이
+2. 형식: 「단어」 = 한국어 뜻
+3. 의태어/의성어는 느낌을 함께 설명
+4. 마지막에 전체 의미를 한 줄로 요약
+5. 마크다운 서식 사용 금지 (**, ##, - 등)
+6. 150자 이내로 간결하게
 
-## 한국어 설명:`;
+## 출력:`;
 
     return callClaudeAPI(prompt, apiKey, model);
 };
