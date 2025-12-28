@@ -16,8 +16,18 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppStore } from '../../store/useAppStore';
 import { getTheme } from '../../theme';
-import { Sentence } from '../../types';
-import { generateReading, generateMeaning, generateExplanation } from '../../services/claudeApi';
+import { Sentence, Token } from '../../types';
+import { generateMeaning, generateExplanation } from '../../services/claudeApi';
+
+// Convert tokens array to string format for display: 今日[きょう]は学校[がっこう]に
+const tokensToString = (tokens: Token[]): string => {
+    return tokens.map(token => {
+        if (token.reading && token.reading !== token.surface) {
+            return `${token.surface}[${token.reading}]`;
+        }
+        return token.surface;
+    }).join('');
+};
 
 interface SentenceEditModalProps {
     visible: boolean;
@@ -39,7 +49,7 @@ export const SentenceEditModal: React.FC<SentenceEditModalProps> = ({
 
     // Form state
     const [expression, setExpression] = useState('');
-    const [reading, setReading] = useState('');
+    const [tokensText, setTokensText] = useState(''); // Changed from reading
     const [meaning, setMeaning] = useState('');
     const [speaker, setSpeaker] = useState('');
     const [memo, setMemo] = useState('');
@@ -51,7 +61,12 @@ export const SentenceEditModal: React.FC<SentenceEditModalProps> = ({
     useEffect(() => {
         if (sentence) {
             setExpression(sentence.expression || '');
-            setReading(sentence.reading || '');
+            // Convert tokens to string if available, otherwise use reading
+            if (sentence.tokens && sentence.tokens.length > 0) {
+                setTokensText(tokensToString(sentence.tokens));
+            } else {
+                setTokensText(sentence.reading || '');
+            }
             setMeaning(sentence.meaning || '');
             setSpeaker(sentence.speaker || '');
             setMemo(sentence.memo || '');
@@ -59,49 +74,12 @@ export const SentenceEditModal: React.FC<SentenceEditModalProps> = ({
     }, [sentence]);
 
     const handleSave = () => {
-        if (!expression.trim()) {
-            return; // Expression is required
-        }
-
+        // Only save meaning and memo (others are read-only)
         onSave(sentenceIndex, {
-            expression: expression.trim(),
-            reading: reading.trim() || expression.trim(),
             meaning: meaning.trim(),
-            speaker: speaker.trim(),
             memo: memo.trim(),
         });
         onClose();
-    };
-
-    // AI Generators
-    const handleGenerateReading = async () => {
-        if (!expression.trim()) return;
-
-        const apiKey = settings.apiKey || process.env.EXPO_PUBLIC_CLAUDE_API_KEY;
-        if (!apiKey) {
-            Alert.alert('오류', 'API 키가 설정되지 않았습니다.');
-            return;
-        }
-
-        setLoadingField('reading');
-        try {
-            const result = await generateReading(
-                expression,
-                readingDict,
-                apiKey,
-                settings.apiModel
-            );
-            if (result) {
-                setReading(result);
-            } else {
-                Alert.alert('실패', '읽기 생성에 실패했습니다.');
-            }
-        } catch (error) {
-            console.error(error);
-            Alert.alert('오류', '생성 중 오류가 발생했습니다.');
-        } finally {
-            setLoadingField(null);
-        }
     };
 
     const handleGenerateMeaning = async () => {
@@ -225,64 +203,49 @@ export const SentenceEditModal: React.FC<SentenceEditModalProps> = ({
 
                     {/* Form */}
                     <ScrollView style={styles.form} showsVerticalScrollIndicator={true}>
-                        {/* Expression (Required) */}
+                        {/* Expression (Read-only) */}
                         <View style={styles.field}>
                             <Text style={[styles.label, { color: theme.colors.primary }]}>
-                                원문 *
+                                원문
                             </Text>
-                            <TextInput
-                                style={[
-                                    styles.input,
-                                    styles.multilineInput,
-                                    {
-                                        backgroundColor: theme.colors.darker,
-                                        color: theme.colors.textLight,
-                                        borderColor: theme.colors.border,
-                                    },
-                                ]}
-                                value={expression}
-                                onChangeText={setExpression}
-                                placeholder="일본어 원문"
-                                placeholderTextColor={theme.colors.textDim}
-                                multiline
-                                numberOfLines={3}
-                            />
-                        </View>
-
-                        {/* Reading */}
-                        <View style={styles.field}>
-                            <View style={styles.labelRow}>
-                                <Text style={[styles.label, { color: theme.colors.info, marginBottom: 0 }]}>
-                                    읽기 (후리가나)
+                            <View style={[styles.readOnlyBox, { backgroundColor: theme.colors.darker, borderColor: theme.colors.border }]}>
+                                <Text style={[styles.readOnlyText, { color: theme.colors.textLight }]}>
+                                    {expression}
                                 </Text>
-                                {renderAiButton('reading', handleGenerateReading, 'AI 읽기 생성')}
                             </View>
-                            <TextInput
-                                style={[
-                                    styles.input,
-                                    styles.multilineInput,
-                                    {
-                                        backgroundColor: theme.colors.darker,
-                                        color: theme.colors.textLight,
-                                        borderColor: theme.colors.border,
-                                    },
-                                ]}
-                                value={reading}
-                                onChangeText={setReading}
-                                placeholder="읽기 (예: 今日[きょう]は)"
-                                placeholderTextColor={theme.colors.textDim}
-                                multiline
-                                numberOfLines={3}
-                            />
                         </View>
 
-                        {/* Meaning */}
+                        {/* Reading (Read-only) */}
+                        <View style={styles.field}>
+                            <Text style={[styles.label, { color: theme.colors.info }]}>
+                                후리가나
+                            </Text>
+                            <View style={[styles.readOnlyBox, { backgroundColor: theme.colors.darker, borderColor: theme.colors.border }]}>
+                                <Text style={[styles.readOnlyText, { color: theme.colors.textLight }]}>
+                                    {tokensText || '(없음)'}
+                                </Text>
+                            </View>
+                        </View>
+
+                        {/* Speaker (Read-only) */}
+                        <View style={styles.field}>
+                            <Text style={[styles.label, { color: theme.colors.textDim }]}>
+                                캐릭터 이름
+                            </Text>
+                            <View style={[styles.readOnlyBox, { backgroundColor: theme.colors.darker, borderColor: theme.colors.border }]}>
+                                <Text style={[styles.readOnlyText, { color: theme.colors.textLight }]}>
+                                    {speaker || '(없음)'}
+                                </Text>
+                            </View>
+                        </View>
+
+                        {/* Meaning (Editable) */}
                         <View style={styles.field}>
                             <View style={styles.labelRow}>
                                 <Text style={[styles.label, { color: theme.colors.accent, marginBottom: 0 }]}>
-                                    한국어
+                                    한국어 번역
                                 </Text>
-                                {renderAiButton('meaning', handleGenerateMeaning, 'AI 번역 생성')}
+                                {renderAiButton('meaning', handleGenerateMeaning, 'AI 생성')}
                             </View>
                             <TextInput
                                 style={[
@@ -300,27 +263,6 @@ export const SentenceEditModal: React.FC<SentenceEditModalProps> = ({
                                 placeholderTextColor={theme.colors.textDim}
                                 multiline
                                 numberOfLines={2}
-                            />
-                        </View>
-
-                        {/* Speaker */}
-                        <View style={styles.field}>
-                            <Text style={[styles.label, { color: theme.colors.textDim }]}>
-                                캐릭터 이름
-                            </Text>
-                            <TextInput
-                                style={[
-                                    styles.input,
-                                    {
-                                        backgroundColor: theme.colors.darker,
-                                        color: theme.colors.textLight,
-                                        borderColor: theme.colors.border,
-                                    },
-                                ]}
-                                value={speaker}
-                                onChangeText={setSpeaker}
-                                placeholder="캐릭터 이름"
-                                placeholderTextColor={theme.colors.textDim}
                             />
                         </View>
 
@@ -473,5 +415,16 @@ const styles = StyleSheet.create({
     saveButtonText: {
         fontWeight: '600',
         fontFamily: 'Pretendard',
+    },
+    readOnlyBox: {
+        borderWidth: 1,
+        borderRadius: 8,
+        padding: 12,
+        opacity: 0.7,
+    },
+    readOnlyText: {
+        fontSize: 14,
+        fontFamily: 'Pretendard',
+        lineHeight: 20,
     },
 });
