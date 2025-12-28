@@ -263,6 +263,7 @@ export const ReaderScreen: React.FC = () => {
 
             if (result) {
                 setPendingAiResult({ type: 'memo', value: result, sourceAction: 'explanation' });
+                setShowActionMenu(false);
                 setShowReviewModal(true);
             } else {
                 showToastMessage('해설 생성 실패');
@@ -296,6 +297,7 @@ export const ReaderScreen: React.FC = () => {
 
             if (result) {
                 setPendingAiResult({ type: 'reading', value: result, sourceAction: 'reading' });
+                setShowActionMenu(false);
                 setShowReviewModal(true);
             } else {
                 showToastMessage('읽기 생성 실패');
@@ -334,13 +336,16 @@ export const ReaderScreen: React.FC = () => {
             if (result.isCorrect) {
                 // Show modal even if correct, with 'match' status
                 setPendingAiResult({ type: 'reading', value: currentSentence.reading || '', status: 'match', sourceAction: 'verify' });
+                setShowActionMenu(false);
                 setShowReviewModal(true);
             } else if (result.correctedReading) {
                 setPendingAiResult({ type: 'reading', value: result.correctedReading, status: 'diff', sourceAction: 'verify' });
+                setShowActionMenu(false);
                 setShowReviewModal(true);
             } else {
                 // Fallback: If inconclusive, treat as match or just show current reading
                 setPendingAiResult({ type: 'reading', value: currentSentence.reading || '', status: 'match', sourceAction: 'verify' });
+                setShowActionMenu(false);
                 setShowReviewModal(true);
             }
         } catch (error) {
@@ -371,6 +376,7 @@ export const ReaderScreen: React.FC = () => {
 
             if (result) {
                 setPendingAiResult({ type: 'meaning', value: result, sourceAction: 'meaning' });
+                setShowActionMenu(false);
                 setShowReviewModal(true);
             } else {
                 showToastMessage('의미 생성 실패');
