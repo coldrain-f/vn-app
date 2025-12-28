@@ -44,7 +44,6 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
     // AI Explanation state
     const [aiExplanation, setAiExplanation] = useState<string | null>(null);
     const [isLoadingAi, setIsLoadingAi] = useState(false);
-    const [showAiTab, setShowAiTab] = useState(false);
 
     // Get entries for the selected word
     const entries = useMemo(() => {
@@ -67,13 +66,11 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
     }, [entries]);
 
     const selectedDictName = uniqueDictionaries[selectedDictIndex] || uniqueDictionaries[0];
-    const isAiTabSelected = showAiTab && selectedDictIndex === uniqueDictionaries.length;
 
     // Reset selection when word changes
     useEffect(() => {
         setSelectedDictIndex(0);
         setAiExplanation(null);
-        setShowAiTab(false);
     }, [word]);
 
     // Auto-scroll tabs when selectedDictIndex changes
@@ -87,21 +84,19 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
     }, [selectedDictIndex, uniqueDictionaries.length]);
 
     // Swipe gesture to change dictionary tabs
-    const totalTabs = showAiTab ? uniqueDictionaries.length + 1 : uniqueDictionaries.length;
-
     const handleSwipeLeft = useCallback(() => {
-        if (totalTabs > 1 && selectedDictIndex < totalTabs - 1) {
+        if (uniqueDictionaries.length > 1 && selectedDictIndex < uniqueDictionaries.length - 1) {
             setSelectedDictIndex(prev => prev + 1);
             haptic.light();
         }
-    }, [totalTabs, selectedDictIndex]);
+    }, [uniqueDictionaries.length, selectedDictIndex]);
 
     const handleSwipeRight = useCallback(() => {
-        if (totalTabs > 1 && selectedDictIndex > 0) {
+        if (uniqueDictionaries.length > 1 && selectedDictIndex > 0) {
             setSelectedDictIndex(prev => prev - 1);
             haptic.light();
         }
-    }, [totalTabs, selectedDictIndex]);
+    }, [uniqueDictionaries.length, selectedDictIndex]);
 
     const swipeGesture = Gesture.Pan()
         .activeOffsetX([-20, 20])
@@ -113,7 +108,7 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
             }
         });
 
-    // Generate AI explanation
+    // Generate AI explanation (inline, no tab switching)
     const handleGenerateAi = useCallback(async () => {
         if (!activeNovelId || !word || !selectedDictName) {
             return;
@@ -121,14 +116,10 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
 
         // Check API key and show alert if missing
         if (!settings.apiKey) {
-            setShowAiTab(true);
-            setSelectedDictIndex(uniqueDictionaries.length);
             setAiExplanation('API 키가 설정되지 않았습니다. 설정 > API 키에서 설정해주세요.');
             return;
         }
 
-        setShowAiTab(true);
-        setSelectedDictIndex(uniqueDictionaries.length); // Select AI tab
         setIsLoadingAi(true);
 
         try {
@@ -158,9 +149,9 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
         } finally {
             setIsLoadingAi(false);
         }
-    }, [activeNovelId, word, selectedDictName, settings.apiKey, settings.apiModel, entries, uniqueDictionaries.length]);
+    }, [activeNovelId, word, selectedDictName, settings.apiKey, settings.apiModel, entries]);
 
-    // Generate HTML for the current dictionary
+    // Generate HTML for the current dictionary (with inline AI explanation)
     const currentHtml = useMemo(() => {
         if (entries.length === 0 || !dictionaryData || !selectedDictName) return null;
 
@@ -175,7 +166,31 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
         // Merge HTMLs
         const mergedHtml = targetEntries.map(e => e.html).join('<hr class="entry-divider" style="margin: 20px 0; border: 0; border-top: 1px dashed #ccc;" />');
 
-        // Base HTML structure - Light background to match SUDACHI LAB
+        // AI Explanation section (if available or loading)
+        let aiSectionHtml = '';
+        if (isLoadingAi) {
+            aiSectionHtml = `
+                <div class="ai-explanation loading">
+                    <div class="ai-header">🤖 AI 해설</div>
+                    <div class="ai-loading">생성 중...</div>
+                </div>
+            `;
+        } else if (aiExplanation) {
+            // Escape HTML and convert newlines to <br>
+            const escapedExplanation = aiExplanation
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\n/g, '<br>');
+            aiSectionHtml = `
+                <div class="ai-explanation">
+                    <div class="ai-header">🤖 AI 해설</div>
+                    <div class="ai-content">${escapedExplanation}</div>
+                </div>
+            `;
+        }
+
+        // Base HTML structure with AI explanation at top
         return `
             <!DOCTYPE html>
             <html>
@@ -197,6 +212,34 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                         margin: 0;
                         font-size: 16px;
                         line-height: 1.6;
+                    }
+                    
+                    /* AI Explanation Styles */
+                    .ai-explanation {
+                        background: linear-gradient(135deg, #E0F2FE 0%, #F0FDF4 100%);
+                        border: 1px solid #0284C7;
+                        border-radius: 12px;
+                        padding: 12px 16px;
+                        margin-bottom: 16px;
+                    }
+                    .ai-explanation.loading {
+                        background: #F1F5F9;
+                        border-color: #94A3B8;
+                    }
+                    .ai-header {
+                        font-weight: 600;
+                        color: #0369A1;
+                        font-size: 14px;
+                        margin-bottom: 8px;
+                    }
+                    .ai-loading {
+                        color: #64748b;
+                        font-style: italic;
+                    }
+                    .ai-content {
+                        color: #1e293b;
+                        font-size: 15px;
+                        line-height: 1.7;
                     }
                     
                     /* Overrides for better mobile display */
@@ -260,13 +303,14 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                 </style>
             </head>
             <body>
+                ${aiSectionHtml}
                 <div class="dict-entries">
                     ${mergedHtml}
                 </div>
             </body>
             </html>
         `;
-    }, [entries, selectedDictName, dictionaryData]);
+    }, [entries, selectedDictName, dictionaryData, aiExplanation, isLoadingAi]);
 
     if (!dictionaryData) return null;
 
@@ -306,7 +350,7 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                     </View>
 
                     {/* Dictionary Tabs */}
-                    {(uniqueDictionaries.length > 1 || showAiTab) && (
+                    {uniqueDictionaries.length > 1 && (
                         <View style={[styles.tabsContainer, { borderBottomColor: '#E2E8F0' }]}>
                             <ScrollView
                                 ref={tabScrollViewRef}
@@ -318,49 +362,25 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                                         key={index}
                                         style={[
                                             styles.tab,
-                                            selectedDictIndex === index && !isAiTabSelected && {
+                                            selectedDictIndex === index && {
                                                 borderBottomColor: '#0284C7',
                                                 borderBottomWidth: 2
                                             }
                                         ]}
                                         onPress={() => {
                                             setSelectedDictIndex(index);
+                                            setAiExplanation(null); // Reset AI explanation when switching dictionaries
                                             haptic.light();
                                         }}
                                     >
                                         <Text style={[
                                             styles.tabText,
-                                            { color: selectedDictIndex === index && !isAiTabSelected ? '#0284C7' : '#64748b' }
+                                            { color: selectedDictIndex === index ? '#0284C7' : '#64748b' }
                                         ]}>
                                             {dictName}
                                         </Text>
                                     </TouchableOpacity>
                                 ))}
-                                {showAiTab && (
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.tab,
-                                            isAiTabSelected && {
-                                                borderBottomColor: '#10B981',
-                                                borderBottomWidth: 2
-                                            }
-                                        ]}
-                                        onPress={() => {
-                                            setSelectedDictIndex(uniqueDictionaries.length);
-                                            haptic.light();
-                                        }}
-                                    >
-                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                            <MaterialCommunityIcons name="robot-outline" size={14} color={isAiTabSelected ? '#10B981' : '#64748b'} />
-                                            <Text style={[
-                                                styles.tabText,
-                                                { color: isAiTabSelected ? '#10B981' : '#64748b', marginLeft: 4 }
-                                            ]}>
-                                                AI 해설
-                                            </Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                )}
                             </ScrollView>
                         </View>
                     )}
@@ -368,41 +388,20 @@ export const DictionaryModal: React.FC<DictionaryModalProps> = ({
                     {/* Content - Swipeable */}
                     <GestureDetector gesture={swipeGesture}>
                         <View style={styles.contentContainer}>
-                            {isAiTabSelected ? (
-                                // AI Explanation content
-                                <View style={styles.aiContentContainer}>
-                                    {isLoadingAi ? (
+                            {entries.length > 0 ? (
+                                <WebView
+                                    originWhitelist={['*']}
+                                    source={{ html: currentHtml || '' }}
+                                    style={{ backgroundColor: '#FFFFFF', flex: 1 }}
+                                    showsVerticalScrollIndicator={true}
+                                    startInLoadingState={true}
+                                    renderLoading={() => (
                                         <View style={styles.loadingContainer}>
-                                            <ActivityIndicator size="large" color="#10B981" />
-                                            <Text style={styles.loadingText}>AI 해설 생성 중...</Text>
-                                        </View>
-                                    ) : aiExplanation ? (
-                                        <ScrollView style={{ flex: 1, padding: 16 }}>
-                                            <Text style={styles.aiExplanationText}>{aiExplanation}</Text>
-                                        </ScrollView>
-                                    ) : (
-                                        <View style={styles.emptyContainer}>
-                                            <MaterialCommunityIcons name="robot-confused-outline" size={48} color="#CBD5E1" />
-                                            <Text style={styles.emptyText}>AI 해설을 생성할 수 없습니다</Text>
+                                            <ActivityIndicator size="large" color="#0284C7" />
+                                            <Text style={styles.loadingText}>로딩 중...</Text>
                                         </View>
                                     )}
-                                </View>
-                            ) : entries.length > 0 ? (
-                                <>
-                                    <WebView
-                                        originWhitelist={['*']}
-                                        source={{ html: currentHtml || '' }}
-                                        style={{ backgroundColor: '#FFFFFF', flex: 1 }}
-                                        showsVerticalScrollIndicator={true}
-                                        startInLoadingState={true}
-                                        renderLoading={() => (
-                                            <View style={styles.loadingContainer}>
-                                                <ActivityIndicator size="large" color="#0284C7" />
-                                                <Text style={styles.loadingText}>로딩 중...</Text>
-                                            </View>
-                                        )}
-                                    />
-                                </>
+                                />
                             ) : (
                                 <View style={styles.emptyContainer}>
                                     <MaterialCommunityIcons name="book-open-variant" size={48} color="#CBD5E1" />
@@ -510,15 +509,5 @@ const styles = StyleSheet.create({
         padding: 8,
         backgroundColor: '#E0F2FE',
         borderRadius: 8,
-    },
-    aiContentContainer: {
-        flex: 1,
-        backgroundColor: '#F8FAFC',
-    },
-    aiExplanationText: {
-        fontSize: 16,
-        lineHeight: 26,
-        color: '#1e293b',
-        fontFamily: 'Pretendard-Regular',
     },
 });
